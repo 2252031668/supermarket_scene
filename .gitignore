@@ -1,0 +1,22 @@
+# Python environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Local configuration and logs
+.env
+.env.*
+*.log
+MUJOCO_LOG.TXT
+
+# Frontend dependencies and build output
+web/node_modules/
+web/dist/
+web/.vite/
+
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/

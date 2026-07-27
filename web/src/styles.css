@@ -1,0 +1,113 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1e2c34;
+  background: #eef2f3;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+
+.app-shell { min-height: 100vh; display: flex; flex-direction: column; }
+.app-header { height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px 0 21px; background: #19262d; color: #f5fafb; border-bottom: 1px solid #0e171c; }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 16px; letter-spacing: 0; }
+.brand > svg { color: #6cd2c9; }
+.brand small { font-size: 9px; letter-spacing: 1px; color: #8eabb0; border-left: 1px solid #4a6065; padding-left: 10px; font-weight: 700; }
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.view-toggle { display: flex; align-items: center; padding: 3px; background: #283c42; border: 1px solid #40565c; border-radius: 5px; }
+.view-toggle button { display: inline-flex; align-items: center; gap: 5px; height: 27px; padding: 0 8px; border: 0; border-radius: 3px; background: transparent; color: #b9c9cc; font-size: 11px; font-weight: 650; }
+.view-toggle button:hover { color: #e7f2f3; }
+.view-toggle button.active { color: #15383a; background: #70d4ca; }
+.icon-button, .danger-icon { width: 34px; height: 34px; display: inline-grid; place-items: center; padding: 0; border: 1px solid #cbd5d8; border-radius: 5px; background: #ffffff; color: #465860; }
+.app-header .icon-button { color: #c7d6d8; background: transparent; border-color: transparent; }
+.app-header .icon-button:hover, .app-header .icon-button.active { background: #33484e; color: #71d7cf; border-color: #496167; }
+.workspace { height: calc(100vh - 58px); min-height: 570px; display: grid; grid-template-columns: minmax(0, 1fr) 366px; }
+.visual-panel { min-height: 570px; position: relative; overflow: hidden; border-right: 1px solid #c7d1d4; }
+.visual-panel canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+.scene-caption { position: absolute; top: 16px; left: 17px; display: flex; gap: 6px; align-items: center; color: #4a5e64; font-size: 12px; font-weight: 600; background: rgba(249, 252, 252, 0.83); border: 1px solid #d2dcdf; padding: 7px 10px; border-radius: 4px; }
+.axis-origin-label, .axis-label { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; pointer-events: none; text-shadow: 0 1px 2px rgba(0, 0, 0, .75); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 800; }
+.axis-origin-label { padding: 2px 4px; border-radius: 2px; background: rgba(20, 29, 34, .72); color: #ffffff; font-size: 9px; }
+.axis-label { font-size: 11px; }
+.axis-x { color: #ef5350; }
+.axis-y { color: #74d878; }
+.axis-z { color: #65a8ff; }
+.control-panel { position: relative; display: flex; flex-direction: column; min-height: 0; background: #fbfcfc; padding: 24px 22px; overflow-y: auto; }
+.overview-panel { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 21px; border-bottom: 1px solid #dce3e5; }
+.panel-title { display: flex; gap: 11px; align-items: center; min-width: 0; }
+.panel-icon { width: 37px; height: 37px; border-radius: 5px; display: grid; place-items: center; flex: 0 0 auto; background: #dff4f0; color: #19887f; }
+.panel-title p { margin: 0 0 3px; color: #73868d; font-size: 9px; letter-spacing: .8px; font-weight: 700; }
+.panel-title h1 { margin: 0; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; line-height: 22px; letter-spacing: 0; font-weight: 700; color: #1f3038; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 20px 0 26px; }
+.metric { min-height: 76px; display: flex; flex-direction: column; justify-content: space-between; padding: 11px 10px; border: 1px solid #dce5e7; border-radius: 5px; background: #fff; }
+.metric strong { font-size: 24px; line-height: 26px; color: #20353c; }
+.metric span { font-size: 10px; color: #71848a; }
+.section-heading { display: flex; justify-content: space-between; align-items: center; margin: 22px 0 9px; color: #62757c; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; }
+.shelf-list { display: grid; gap: 5px; }
+.shelf-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 17px; gap: 9px; align-items: center; width: 100%; min-height: 55px; text-align: left; padding: 8px; border: 1px solid #e0e7e9; border-radius: 5px; background: #fff; color: #2b3d43; }
+.shelf-row:hover { border-color: #72bdb8; background: #f4fbfa; }
+.shelf-row strong, .shelf-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shelf-row strong { font-size: 12px; font-weight: 650; }
+.shelf-row small { margin-top: 3px; color: #7e9196; font-size: 10px; }
+.shelf-id { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 4px; background: #e8f0f1; color: #3f6770; font-size: 11px; font-weight: 700; }
+.sku-legend-header { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; margin: 22px 0 9px; }
+.sku-legend-toggle { display: flex; flex: 1 1 auto; align-items: center; justify-content: space-between; min-width: 0; padding: 0; border: 0; background: transparent; color: #62757c; font-size: 11px; font-weight: 700; letter-spacing: .6px; text-align: left; }
+.sku-legend-toggle:hover { color: #1b837c; }
+.sku-add-button { width: 28px; height: 28px; flex: 0 0 auto; }
+.sku-legend-count { display: inline-flex; align-items: center; gap: 4px; }
+.sku-legend-count svg { transition: transform 140ms ease; }
+.sku-legend-count svg.collapsed { transform: rotate(-90deg); }
+.sku-summary { display: grid; flex: 1 1 auto; min-height: 0; gap: 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.sku-row { min-width: 0; min-height: 29px; display: grid; grid-template-columns: 11px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 4px 2px; border-bottom: 1px solid #edf1f2; }
+.sku-row:last-child { border-bottom: 0; }
+.sku-swatch { width: 11px; height: 11px; border: 1px solid rgba(27, 42, 48, .22); border-radius: 2px; }
+.sku-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #40545a; font-size: 11px; font-weight: 650; }
+.sku-row small { color: #72878c; font-size: 10px; white-space: nowrap; }
+.field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px 10px; padding: 21px 0 17px; }
+.field { min-width: 0; display: grid; gap: 6px; }
+.field.wide { grid-column: 1 / -1; }
+.field span { color: #647980; font-size: 10px; font-weight: 700; letter-spacing: .25px; }
+.field input, .field select { width: 100%; min-width: 0; height: 35px; padding: 0 9px; border: 1px solid #cbd7da; border-radius: 4px; background: #fff; color: #263a41; font-size: 12px; outline: none; }
+.field input:focus, .field select:focus { border-color: #3faea5; box-shadow: 0 0 0 2px rgba(63,174,165,.13); }
+.panel-actions { display: flex; gap: 8px; margin-top: 4px; }
+.primary-button, .secondary-button, .danger-button { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 4px; padding: 0 12px; border: 1px solid transparent; font-size: 12px; font-weight: 650; }
+.primary-button { flex: 1; background: #168d83; color: white; border-color: #168d83; }
+.primary-button:hover { background: #087970; }
+.secondary-button { flex: 1; color: #277d77; background: #eff9f7; border-color: #b9ded9; }
+.secondary-button:hover { background: #e0f2ef; }
+.danger-button { margin-top: 12px; width: 100%; color: #a55050; background: #fffafa; border-color: #f0d3d3; }
+.danger-button:hover { color: #fff; background: #b95a5a; border-color: #b95a5a; }
+.danger-icon { margin-left: auto; flex: 0 0 auto; color: #a65050; background: #fffafa; border-color: #eccccc; }
+.cleanup-scope { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 21px 0 4px; }
+.cleanup-scope button { min-height: 34px; padding: 0 7px; border: 1px solid #d7e1e3; border-radius: 4px; background: #fff; color: #597078; font-size: 11px; font-weight: 650; }
+.cleanup-scope button:hover { border-color: #79bdb7; color: #197d75; }
+.cleanup-scope button.active { border-color: #168d83; background: #e9f7f4; color: #126e67; }
+.cleanup-fields { padding-top: 16px; }
+.cleanup-preview { display: grid; gap: 4px; margin: 15px 0 0; padding: 11px; border: 1px solid #f0d6d6; border-radius: 4px; background: #fffafa; color: #9a5555; }
+.cleanup-preview span { font-size: 10px; }
+.cleanup-preview strong { font-size: 12px; }
+.helper-text { margin: -2px 0 16px; color: #73878d; font-size: 11px; line-height: 17px; }
+.notice { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; padding: 9px 10px; color: #9d4d4d; background: #fff1f1; border: 1px solid #f0cccc; border-radius: 4px; font-size: 11px; }
+.notice button { padding: 0; border: 0; background: transparent; color: inherit; }
+.saving { position: absolute; top: 12px; right: 18px; display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: #eef9f7; color: #167c73; border: 1px solid #c6e7e2; border-radius: 4px; font-size: 10px; font-weight: 700; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 850px) {
+  .workspace { height: auto; min-height: calc(100vh - 58px); grid-template-columns: 1fr; }
+  .visual-panel { min-height: 62vh; border-right: 0; border-bottom: 1px solid #c7d1d4; }
+  .control-panel { min-height: 420px; }
+  .sku-summary { max-height: 280px; flex-basis: auto; }
+}
+
+@media (max-width: 480px) {
+  .app-header { padding: 0 11px; }
+  .brand small { display: none; }
+  .view-toggle button { width: 28px; padding: 0; justify-content: center; }
+  .view-toggle button { font-size: 0; }
+  .workspace { min-height: calc(100vh - 58px); }
+  .visual-panel { min-height: 52vh; }
+  .control-panel { padding: 18px 15px; }
+}

@@ -1,0 +1,442 @@
+# 货架数据库：表结构与 API 清单
+
+---
+
+## 一、数据库概述
+
+- **数据库类型**: SQLite
+- **数据库文件**: `shelf_inventory.db`
+- **编码**: `shelf_database.py` — `ShelfDatabase` 类
+
+### 坐标契约 (`map`)
+
+数据库中的世界坐标遵循 ROS `map` 帧的右手系约定，单位为米：`+X`、`+Y` 位于地面平面，`+Z` 向上，且 `+X × +Y = +Z`。`yaw` 是绕 `+Z` 轴的逆时针旋转（弧度）。
+
+`shelf_groups.world_x` 和 `world_y` 存储货架**局部原点**在 `map` 中的坐标，不使用屏幕方位描述。在 `yaw = 0` 时，该原点是货架占地范围的最小局部 X、最小局部 Y 参考角，货架沿本地 `+X` 和 `+Y` 延展。现有数值可直接用于 ROS2、MuJoCo 与 Three.js 的 Z-up 场景，无需转换。
+
+### 货架物理参数 (单位: 米, 存储在 `shelf_types` 表中)
+
+| 参数 | 默认值 | 含义 |
+|------|--------|------|
+| `shelf_length` | 1.86 | 货架组长边 (沿Y) |
+| `shelf_width` | 0.80 | 货架组宽边 (沿X) |
+| `shelf_height` | 1.65 | 货架组高度 (沿Z) |
+| `num_levels` | 5 | 层数 (0-4) |
+| `bottom_clearance` | 0.05 | 底层离地高度 |
+| `level_spacing` | 0.40 | 层间距 |
+| `panel_thick` | 0.02 | 层板厚度 |
+| `back_thick` | 0.005 | 背板厚度 |
+| `shelf_depth_normal` | 0.30 | 上层层板深度 (每面) |
+| `shelf_depth_bottom` | 0.40 | 底层深度 (每面) |
+
+> **设计说明**: 以上 10 个参数全部存储在 `shelf_types` 表中。代码中的 `DEFAULT_*` 常量仅作为 fallback 值。不同货架类型可拥有不同的尺寸配置。
+
+### 货架局部坐标系
+
+```
+原点: 货架局部原点 (reference anchor)
++X: 货架宽度方向
++Y: 货架长度方向
++Z: 货架高度方向
+
+face = 0: -X 侧
+face = 1: +X 侧
+
+level: 0 到 (num_levels-1), 从下到上
+```
+
+### 世界坐标转换
+
+```
+wx = world_x + lx·cos(yaw) - ly·sin(yaw)
+wy = world_y + lx·sin(yaw) + ly·cos(yaw)
+wz = lz
+
+yaw = 0 时, 货架局部 +X/+Y 与世界 +X/+Y 对齐
+```
+
+### Slot ID 字符串格式
+
+```
+{shelf_id}-{face}-{level}-{y_cm}-{z_offset_cm}
+
+一个 slot = 一个商品实例, y_cm 和 z_offset_cm 精确到厘米。
+
+例如: 1-1-2-9-4
+  1  — 1号货架
+  1  — +X 侧
+  2  — 第2层 (从下到上)
+  9  — 商品中心距货架原点Y轴 9cm (沿货架长度方向)
+  4  — 商品中心距当前层板表面 4cm (向上偏移)
+```
+
+---
+
+## 二、四张表结构
+
+### 2.1 `shelf_types` — 货架类型表
+
+记录不同货架的物理尺寸参数。每个 `shelf_group` 通过 `shelf_type_id` 关联一种类型，实现同一场景中不同尺寸货架的共存。
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| `id` | INTEGER | PRIMARY KEY AUTOINCREMENT | 自增主键 |
+| `name` | TEXT | NOT NULL UNIQUE | 类型名 (如 `"standard"`) |
+| `shelf_length` | REAL | NOT NULL | 货架组长边长度 (沿Y, 米) |
+| `shelf_width` | REAL | NOT NULL | 货架组宽边长度 (沿X, 米) |
+| `shelf_height` | REAL | NOT NULL | 货架组高度 (沿Z, 米) |
+| `num_levels` | INTEGER | NOT NULL | 层数 |
+| `bottom_clearance` | REAL | NOT NULL | 底层离地高度 (米) |
+| `level_spacing` | REAL | NOT NULL | 层间距 (米) |
+| `panel_thick` | REAL | NOT NULL | 层板厚度 (米) |
+| `back_thick` | REAL | NOT NULL | 背板厚度 (米) |
+| `shelf_depth_normal` | REAL | NOT NULL | 上层层板深度, 每面 (米) |
+| `shelf_depth_bottom` | REAL | NOT NULL | 底层深度, 每面 (米) |
+
+```sql
+CREATE TABLE IF NOT EXISTS shelf_types (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                TEXT NOT NULL UNIQUE,
+    shelf_length        REAL NOT NULL,
+    shelf_width         REAL NOT NULL,
+    shelf_height        REAL NOT NULL,
+    num_levels          INTEGER NOT NULL,
+    bottom_clearance    REAL NOT NULL,
+    level_spacing       REAL NOT NULL,
+    panel_thick         REAL NOT NULL,
+    back_thick          REAL NOT NULL,
+    shelf_depth_normal  REAL NOT NULL,
+    shelf_depth_bottom  REAL NOT NULL
+);
+```
+
+---
+
+### 2.2 `shelf_groups` — 货架组表
+
+记录每个货架组在世界中的位置信息。通过 `shelf_type_id` 关联物理参数。
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| `id` | INTEGER | PRIMARY KEY | 自增主键, 货架组唯一标识 |
+| `name` | TEXT | NOT NULL DEFAULT '' | 货架名称 |
+| `world_x` | REAL | NOT NULL DEFAULT 0.0 | 货架局部原点的 map X 坐标 |
+| `world_y` | REAL | NOT NULL DEFAULT 0.0 | 货架局部原点的 map Y 坐标 |
+| `yaw` | REAL | NOT NULL DEFAULT 0.0 | 绕 map +Z 的逆时针旋转 (弧度) |
+| `shelf_type_id` | INTEGER | FK→shelf_types.id, DEFAULT NULL | 货架类型 |
+| `created_at` | TEXT | NOT NULL DEFAULT (datetime('now')) | 创建时间 |
+
+**约束**:
+- `FOREIGN KEY (shelf_type_id) REFERENCES shelf_types(id) ON DELETE SET NULL` — 删除类型时不级联删除货架组
+
+```sql
+CREATE TABLE shelf_groups (
+    id              INTEGER PRIMARY KEY,
+    name            TEXT NOT NULL DEFAULT '',
+    world_x         REAL NOT NULL DEFAULT 0.0,
+    world_y         REAL NOT NULL DEFAULT 0.0,
+    yaw             REAL NOT NULL DEFAULT 0.0,
+    shelf_type_id   INTEGER DEFAULT NULL,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (shelf_type_id) REFERENCES shelf_types(id) ON DELETE SET NULL
+);
+```
+
+---
+
+### 2.3 `sku_catalog` — SKU 目录表
+
+记录所有可放置的商品类型及其 3D 模型资源路径。
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| `sku` | TEXT | PRIMARY KEY | 商品 SKU 唯一标识 (如 `cracker_box`) |
+| `category` | TEXT | NOT NULL DEFAULT '' | 品类 (food/drink/cleaning/kitchen) |
+| `mesh_file` | TEXT | NOT NULL DEFAULT '' | OBJ 网格文件路径 |
+| `tex_file` | TEXT | NOT NULL DEFAULT '' | 纹理贴图路径 |
+
+```sql
+CREATE TABLE sku_catalog (
+    sku         TEXT PRIMARY KEY,
+    category    TEXT NOT NULL DEFAULT '',
+    mesh_file   TEXT NOT NULL DEFAULT '',
+    tex_file    TEXT NOT NULL DEFAULT ''
+);
+```
+
+---
+
+### 2.4 `shelf_inventory` — 货架库存表 (核心)
+
+**一个 slot = 一个商品实例**。每个商品通过精确的 Y 坐标 (厘米) 和 Z 偏移 (厘米) 定位，同一位置 `(shelf_id, face, level, y_cm)` 只能有一个商品。
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| `id` | INTEGER | PRIMARY KEY AUTOINCREMENT | 自增记录 ID |
+| `shelf_id` | INTEGER | NOT NULL, FK→shelf_groups.id | 所属货架组 |
+| `face` | INTEGER | NOT NULL, CHECK(0,1) | 面: 0=-X 侧, 1=+X 侧 |
+| `level` | INTEGER | NOT NULL, CHECK(>=0) | 层号, 0=最下层 (上限由 shelf_types.num_levels 决定) |
+| `y_cm` | REAL | NOT NULL, CHECK(>=0) | 商品中心距货架原点Y轴距离 (厘米, 沿货架长度方向) |
+| `z_offset_cm` | REAL | NOT NULL DEFAULT 0.0 | 商品中心距当前层板表面的高度 (厘米) |
+| `sku` | TEXT | NOT NULL, FK→sku_catalog.sku | 商品 SKU |
+
+**约束**:
+- `FOREIGN KEY (shelf_id) REFERENCES shelf_groups(id) ON DELETE CASCADE` — 删除货架时级联删除库存
+- `FOREIGN KEY (sku) REFERENCES sku_catalog(sku) ON DELETE CASCADE` — 删除 SKU 时级联删除库存
+- `UNIQUE(shelf_id, face, level, y_cm)` — 同一位置只能有一个商品
+
+**索引**:
+- `idx_inventory_shelf` ON `(shelf_id, face, level, y_cm)` — 按位置查询
+- `idx_inventory_sku` ON `(sku)` — 按 SKU 查询
+
+```sql
+CREATE TABLE shelf_inventory (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    shelf_id        INTEGER NOT NULL,
+    face            INTEGER NOT NULL CHECK(face IN (0, 1)),
+    level           INTEGER NOT NULL CHECK(level >= 0),
+    y_cm            REAL NOT NULL CHECK(y_cm >= 0),
+    z_offset_cm     REAL NOT NULL DEFAULT 0.0,
+    sku             TEXT NOT NULL,
+    FOREIGN KEY (shelf_id) REFERENCES shelf_groups(id) ON DELETE CASCADE,
+    FOREIGN KEY (sku) REFERENCES sku_catalog(sku) ON DELETE CASCADE,
+    UNIQUE(shelf_id, face, level, y_cm)
+);
+
+CREATE INDEX idx_inventory_shelf ON shelf_inventory(shelf_id, face, level, y_cm);
+CREATE INDEX idx_inventory_sku ON shelf_inventory(sku);
+```
+
+---
+
+## 三、API 完整清单
+
+### 3.0 总览
+
+| 分类 | 方法数 | 涉及方法 |
+|------|--------|----------|
+| 初始化 | 1 | `ShelfDatabase(db_path)` |
+| 货架类型管理 | 4 | `add_shelf_type`, `get_shelf_type`, `get_shelf_type_by_name`, `get_all_shelf_types` |
+| 货架组管理 | 6 | `add_shelf_group`, `update_shelf_group`, `remove_shelf_group`, `get_shelf_group`, `get_all_shelf_groups`, `get_shelf_world_pos` |
+| SKU 目录管理 | 5 | `register_sku`, `register_skus_batch`, `get_sku_info`, `get_all_skus`, `remove_sku_from_catalog` |
+| 库存写入 | 3 | `set_slot`, `remove_slot`, `clear_shelf` |
+| 库存查询 | 7 | `get_slot`, `get_shelf_inventory`, `get_shelf_sku_summary`, `find_sku_locations`, `find_sku_world_positions`, `get_sku_total_quantity`, `get_sku_total_quantity_by_shelf` |
+| 坐标计算 | 4 | `get_slot_world_pos`, `get_all_slots_world`, `get_shelf_group_all_slots_world`, `slot_id_to_local`, `local_to_world` (静态) |
+| 工具方法 | 3 | `get_stats`, `slot_id_str_to_tuple`, `close` |
+| **合计** | **33** | |
+
+---
+
+### 3.1 初始化
+
+| API | 说明 |
+|-----|------|
+| `ShelfDatabase(db_path)` | 创建/打开数据库, 自动建表。`db_path=":memory:"` 为内存模式 |
+
+---
+
+### 3.2 货架类型管理 (shelf_types)
+
+| API | 签名 | 返回值 | 说明 |
+|-----|------|--------|------|
+| `add_shelf_type` | `(name, shelf_length, shelf_width, shelf_height, num_levels, bottom_clearance, level_spacing, panel_thick, back_thick, shelf_depth_normal, shelf_depth_bottom)` | `int` (新类型ID) | 添加一种货架类型 (10 个物理参数) |
+| `get_shelf_type` | `(type_id)` | `Optional[ShelfType]` | 按 ID 获取货架类型 |
+| `get_shelf_type_by_name` | `(name)` | `Optional[ShelfType]` | 按名称获取货架类型 |
+| `get_all_shelf_types` | `()` | `List[ShelfType]` | 获取所有货架类型 |
+
+---
+
+### 3.3 货架组管理 (shelf_groups)
+
+| API | 签名 | 返回值 | 说明 |
+|-----|------|--------|------|
+| `add_shelf_group` | `(name="", world_x=0.0, world_y=0.0, yaw=0.0, shelf_type_id=None)` | `int` (新货架ID) | 添加货架组 |
+| `update_shelf_group` | `(shelf_id, name=None, world_x=None, world_y=None, yaw=None, shelf_type_id=None)` | `None` | 更新货架组, None 参数不修改 |
+| `remove_shelf_group` | `(shelf_id)` | `int` | 删除货架组并返回级联删除的库存实例数 |
+| `get_shelf_group` | `(shelf_id)` | `Optional[ShelfGroup]` | 获取货架组信息 |
+| `get_all_shelf_groups` | `()` | `List[ShelfGroup]` | 获取所有货架组 |
+| `get_shelf_world_pos` | `(shelf_id)` | `Optional[WorldPos]` | 获取货架局部原点的 map 坐标 |
+
+---
+
+### 3.4 SKU 目录管理 (sku_catalog)
+
+| API | 签名 | 返回值 | 说明 |
+|-----|------|--------|------|
+| `register_sku` | `(sku, category="", mesh_file="", tex_file="")` | `None` | 注册/更新一个 SKU；使用安全 UPSERT，不影响已关联库存 |
+| `register_skus_batch` | `(skus: List[Dict])` | `None` | 批量注册 SKU；不替换已有目录行 |
+| `get_sku_info` | `(sku)` | `Optional[SkuInfo]` | 获取 SKU 信息 |
+| `get_all_skus` | `()` | `List[SkuInfo]` | 获取所有 SKU |
+| `remove_sku_from_catalog` | `(sku)` | `None` | 删除 SKU (级联删除库存) |
+
+---
+
+### 3.5 库存管理 — 写入 (shelf_inventory)
+
+一个 slot = 一个商品实例。
+
+| API | 签名 | 说明 |
+|-----|------|------|
+| `set_slot` | `(shelf_id, face, level, y_cm, z_offset_cm, sku)` | 在指定位置放置商品。同一位置已存在则覆盖 |
+| `remove_slot` | `(shelf_id, face, level, y_cm)` | 删除指定位置的商品 |
+| `clear_shelf_face_level` | `(shelf_id, face, level)` | 清空指定局部 X 侧与层号的库存，返回删除数量 |
+| `clear_shelf_face` | `(shelf_id, face)` | 清空指定局部 X 侧全部库存，返回删除数量 |
+| `clear_shelf` | `(shelf_id)` | 清空货架组所有库存，返回删除数量；不删除 SKU 目录 |
+
+---
+
+### 3.6 库存查询 (shelf_inventory)
+
+| API | 签名 | 返回值 | 说明 |
+|-----|------|--------|------|
+| `get_slot` | `(shelf_id, face, level, y_cm)` | `Optional[ShelfSlot]` | 获取指定位置的商品 |
+| `get_shelf_inventory` | `(shelf_id)` | `List[ShelfSlot]` | 获取指定货架所有商品 |
+| `get_shelf_sku_summary` | `(shelf_id)` | `List[Dict]` | 指定货架有哪些 SKU 及数量 (聚合) |
+| `find_sku_locations` | `(sku)` | `List[Dict]` | 指定 SKU 在哪些货架的哪些位置 |
+| `find_sku_world_positions` | `(sku)` | `List[Dict]` | 指定 SKU 所在位置的世界坐标 (含坐标计算) |
+| `get_sku_total_quantity` | `(sku)` | `int` | 指定 SKU 在所有货架的总数量 |
+| `get_sku_total_quantity_by_shelf` | `(sku)` | `List[Dict]` | 指定 SKU 在每个货架的总数量 |
+
+---
+
+### 3.7 坐标查询 (用于场景生成)
+
+| API | 签名 | 返回值 | 说明 |
+|-----|------|--------|------|
+| `get_slot_world_pos` | `(shelf_id, face, level, y_cm, z_offset_cm)` | `Optional[WorldPos]` | 指定位置的世界坐标 |
+| `get_all_slots_world` | `()` | `List[Dict]` | 所有商品的世界坐标 (带 SKU) |
+| `get_shelf_group_all_slots_world` | `(shelf_id)` | `List[Dict]` | 指定货架组所有商品的世界坐标 |
+
+---
+
+### 3.8 坐标计算方法
+
+| API | 签名 | 返回值 | 说明 |
+|-----|------|--------|------|
+| `level_surface_z(level, shelf_type=None)` | `(int, ShelfType?)` | `float` | 指定层的层板上表面 Z 坐标 (局部, 单位: 米) |
+| `face_center_x(face, level, shelf_type=None)` | `(int, int, ShelfType?)` | `float` | 指定面/层的层板中心 X 坐标 (局部, 单位: 米) |
+| `slot_id_to_local(shelf_id, face, level, y_cm, z_offset_cm)` | `(int, int, int, float, float)` | `LocalPos` | 槽位 → 局部坐标 (自动通过 `_resolve_shelf_params` 获取参数, y_cm/z_offset_cm 厘米→米自动转换) |
+| `local_to_world(local, world_x, world_y, yaw)` | `(LocalPos, float, float, float)` | `WorldPos` | 局部坐标 → 世界坐标 (静态方法) |
+
+> **内部方法**: `_resolve_shelf_params(shelf_id)` → `ShelfType` — 解析货架物理参数的统一入口。优先级: `shelf_type_id` → `shelf_types` 表 → `DEFAULT_*` 常量。
+
+---
+
+### 3.9 其他工具方法
+
+| API | 签名 | 返回值 | 说明 |
+|-----|------|--------|------|
+| `get_stats()` | `()` | `Dict` | 统计: 货架类型数/货架组数/SKU种数/商品总数 |
+| `slot_id_str_to_tuple(slot_id_str)` | `(str)` | `(int, int, int, float, float)` | 将 `"0-1-2-9-4"` 解析为 `(shelf_id, face, level, y_cm, z_offset_cm)` |
+| `close()` | `()` | `None` | 关闭数据库连接 |
+| `__enter__` / `__exit__` | — | — | 支持 `with` 语句 |
+
+---
+
+### 3.10 模块级便捷函数
+
+| 函数 | 说明 |
+|------|------|
+| `init_database_from_scene_params(db, shelf_positions, skus)` | 根据场景参数列表初始化数据库 |
+
+---
+
+## 四、数据类 (Dataclass)
+
+| 类名 | 字段 | 说明 |
+|------|------|------|
+| `ShelfType` | `id, name, shelf_length, shelf_width, shelf_height, num_levels, bottom_clearance, level_spacing, panel_thick, back_thick, shelf_depth_normal, shelf_depth_bottom` | 货架类型物理参数 (10字段) |
+| `ShelfGroup` | `id, name, world_x, world_y, yaw, shelf_type_id, created_at` | 货架组信息 |
+| `SkuInfo` | `sku, category, mesh_file, tex_file` | SKU 信息 |
+| `ShelfSlot` | `id, shelf_id, face, level, y_cm, z_offset_cm, sku` | 一个商品槽位 (一个 slot = 一个商品实例) |
+| `LocalPos` | `x, y, z` | 货架局部坐标 |
+| `WorldPos` | `x, y, z` | 世界坐标 |
+
+---
+
+## 五、当前数据规模
+
+| 项目 | 数量 |
+|------|------|
+| 货架类型 | 1 ("standard") |
+| 货架组 | 4 |
+| SKU 种类 | 19 (11 YCB + 8 scanned) |
+| 典型商品数 | ~250 个商品实例 (每个 slot = 1 个商品) |
+
+---
+
+## 六、使用示例
+
+```python
+from shelf_database import (ShelfDatabase, ShelfType,
+    DEFAULT_SHELF_LENGTH, DEFAULT_SHELF_WIDTH, DEFAULT_SHELF_HEIGHT,
+    DEFAULT_NUM_LEVELS, DEFAULT_BOTTOM_CLEARANCE, DEFAULT_LEVEL_SPACING,
+    DEFAULT_PANEL_THICK, DEFAULT_BACK_THICK,
+    DEFAULT_SHELF_DEPTH_NORMAL, DEFAULT_SHELF_DEPTH_BOTTOM)
+
+db = ShelfDatabase("shelf_inventory.db")
+
+# --- 创建货架类型 ---
+type_id = db.add_shelf_type(
+    name="standard",
+    shelf_length=DEFAULT_SHELF_LENGTH,
+    shelf_width=DEFAULT_SHELF_WIDTH,
+    shelf_height=DEFAULT_SHELF_HEIGHT,
+    num_levels=DEFAULT_NUM_LEVELS,
+    bottom_clearance=DEFAULT_BOTTOM_CLEARANCE,
+    level_spacing=DEFAULT_LEVEL_SPACING,
+    panel_thick=DEFAULT_PANEL_THICK,
+    back_thick=DEFAULT_BACK_THICK,
+    shelf_depth_normal=DEFAULT_SHELF_DEPTH_NORMAL,
+    shelf_depth_bottom=DEFAULT_SHELF_DEPTH_BOTTOM,
+)
+
+# --- 添加货架组 (关联类型) ---
+sid = db.add_shelf_group(
+    name="shelf_0",
+    world_x=-1.5, world_y=0.25,
+    yaw=0.0,
+    shelf_type_id=type_id,
+)
+
+# --- 查询货架类型 ---
+st = db.get_shelf_type(type_id)
+print(f"类型: {st.name}, 层数: {st.num_levels}")
+
+# --- 放置商品 (一个 slot = 一个商品) ---
+# set_slot(shelf_id, face, level, y_cm, z_offset_cm, sku)
+db.set_slot(sid, face=0, level=2, y_cm=50, z_offset_cm=4, sku="cracker_box")
+db.set_slot(sid, face=0, level=2, y_cm=65, z_offset_cm=4, sku="tomato_soup_can")
+db.set_slot(sid, face=1, level=4, y_cm=90, z_offset_cm=5, sku="banana")
+
+# --- 查询 cracker_box 的总库存 ---
+total = db.get_sku_total_quantity("cracker_box")
+print(f"cracker_box 总计: {total} 个")
+
+# 查询 cracker_box 在每个货架的数量
+by_shelf = db.get_sku_total_quantity_by_shelf("cracker_box")
+for s in by_shelf:
+    print(f"  货架 {s['shelf_id']}: {s['total_quantity']} 个")
+
+# 查询 cracker_box 在哪些位置
+for loc in db.find_sku_locations("cracker_box"):
+    print(f"  货架{loc['shelf_id']} 面{loc['face']} 层{loc['level']} "
+          f"y={loc['y_cm']:.0f}cm z_offset={loc['z_offset_cm']:.0f}cm")
+
+# 查询所有 cracker_box 的世界位置
+positions = db.find_sku_world_positions("cracker_box")
+for p in positions:
+    print(f"  {p['slot_id_str']}: ({p['world_x']:.3f}, {p['world_y']:.3f}, {p['world_z']:.3f})")
+
+# 删除指定位置的商品
+db.remove_slot(sid, face=0, level=2, y_cm=65)  # 删除 0-0-2-65
+
+# 生成 MuJoCo 场景
+all_slots = db.get_all_slots_world()
+for s in all_slots:
+    # s 包含: shelf_id, face, level, y_cm, z_offset_cm, sku,
+    #          world_x, world_y, world_z, yaw, slot_id_str
+    ...
+
+db.close()
+```

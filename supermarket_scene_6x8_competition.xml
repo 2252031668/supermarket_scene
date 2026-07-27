@@ -1,0 +1,1009 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mujoco model="supermarket_scene_6x8_competition">
+  <compiler angle="degree" coordinate="local" inertiafromgeom="true" meshdir="." texturedir="."/>
+  <option timestep="0.005" gravity="0 0 -9.81" iterations="50" ls_iterations="50"/>
+  <default>
+    <geom condim="3" friction="0.5 0.1 0.1"/>
+  </default>
+  <visual>
+    <global azimuth="120" elevation="-30" offwidth="1920" offheight="1080"/>
+  </visual>
+  <asset>
+    <texture name="floor_tex" type="2d" builtin="checker" width="256" height="256" rgb1="0.85 0.82 0.78" rgb2="0.75 0.72 0.68"/>
+    <material name="floor_mat" rgba="0.85 0.82 0.78 1.0" reflectance="0.05" texture="floor_tex" texrepeat="12 16"/>
+    <material name="shelf_mat" rgba="0.15 0.15 0.18 1.0" reflectance="0.3"/>
+    <material name="shelf_layer_mat" rgba="0.75 0.15 0.15 1.0" reflectance="0.3"/>
+    <material name="frame_mat" rgba="0.25 0.25 0.30 1.0" reflectance="0.4"/>
+    <material name="counter_mat" rgba="0.50 0.50 0.52 1.0" reflectance="0.15"/>
+    <material name="counter_top_mat" rgba="0.05 0.50 0.25 1.0" reflectance="0.15"/>
+    <material name="basket_mat" rgba="0.15 0.25 0.55 1.0" reflectance="0.1"/>
+    <material name="receipt_mat" rgba="0.98 0.98 0.95 1.0" reflectance="0.05"/>
+    <material name="boundary_mat" rgba="0.9 0.9 0.9 1.0" reflectance="0.1"/>
+    <material name="divider_mat" rgba="1.0 0.85 0.0 1.0" reflectance="0.1"/>
+    <material name="start_zone_mat" rgba="0.0 0.7 0.2 0.8" reflectance="0.05"/>
+    <material name="wall_mat" rgba="1.0 1.0 1.0 1.0" reflectance="0.2"/>
+    <material name="shelf_side_red" rgba="0.75 0.15 0.15 1.0" reflectance="0.3"/>
+    <material name="shelf_side_black" rgba="0.08 0.08 0.08 1.0" reflectance="0.3"/>
+    <texture name="tex_cracker_box" type="2d" file="assets/ycb/asset/ycb_models/003_cracker_box/google_16k/texture_map.png"/>
+    <material name="mat_cracker_box" texture="tex_cracker_box" specular="0.3" shininess="0.3"/>
+    <mesh name="mesh_cracker_box" file="assets/ycb/asset/ycb_models/003_cracker_box/google_16k/textured.obj"/>
+    <texture name="tex_sugar_box" type="2d" file="assets/ycb/asset/ycb_models/004_sugar_box/google_16k/texture_map.png"/>
+    <material name="mat_sugar_box" texture="tex_sugar_box" specular="0.3" shininess="0.3"/>
+    <mesh name="mesh_sugar_box" file="assets/ycb/asset/ycb_models/004_sugar_box/google_16k/textured.obj"/>
+    <texture name="tex_tomato_soup_can" type="2d" file="assets/ycb/asset/ycb_models/005_tomato_soup_can/google_16k/texture_map.png"/>
+    <material name="mat_tomato_soup_can" texture="tex_tomato_soup_can" specular="0.3" shininess="0.3"/>
+    <mesh name="mesh_tomato_soup_can" file="assets/ycb/asset/ycb_models/005_tomato_soup_can/google_16k/textured.obj"/>
+    <texture name="tex_mustard_bottle" type="2d" file="assets/ycb/asset/ycb_models/006_mustard_bottle/google_16k/texture_map.png"/>
+    <material name="mat_mustard_bottle" texture="tex_mustard_bottle" specular="0.3" shininess="0.3"/>
+    <mesh name="mesh_mustard_bottle" file="assets/ycb/asset/ycb_models/006_mustard_bottle/google_16k/textured.obj"/>
+    <texture name="tex_tuna_fish_can" type="2d" file="assets/ycb/asset/ycb_models/007_tuna_fish_can/google_16k/texture_map.png"/>
+    <material name="mat_tuna_fish_can" texture="tex_tuna_fish_can" specular="0.3" shininess="0.3"/>
+    <mesh name="mesh_tuna_fish_can" file="assets/ycb/asset/ycb_models/007_tuna_fish_can/google_16k/textured.obj"/>
+    <texture name="tex_potted_meat_can" type="2d" file="assets/ycb/asset/ycb_models/010_potted_meat_can/google_16k/texture_map.png"/>
+    <material name="mat_potted_meat_can" texture="tex_potted_meat_can" specular="0.3" shininess="0.3"/>
+    <mesh name="mesh_potted_meat_can" file="assets/ycb/asset/ycb_models/010_potted_meat_can/google_16k/textured.obj"/>
+    <texture name="tex_banana" type="2d" file="assets/ycb/asset/ycb_models/011_banana/google_16k/texture_map.png"/>
+    <material name="mat_banana" texture="tex_banana" specular="0.3" shininess="0.3"/>
+    <mesh name="mesh_banana" file="assets/ycb/asset/ycb_models/011_banana/google_16k/textured.obj"/>
+    <texture name="tex_pitcher_base" type="2d" file="assets/ycb/asset/ycb_models/019_pitcher_base/google_16k/texture_map.png"/>
+    <material name="mat_pitcher_base" texture="tex_pitcher_base" specular="0.3" shininess="0.3"/>
+    <mesh name="mesh_pitcher_base" file="assets/ycb/asset/ycb_models/019_pitcher_base/google_16k/textured.obj"/>
+    <texture name="tex_bleach_cleanser" type="2d" file="assets/ycb/asset/ycb_models/021_bleach_cleanser/google_16k/texture_map.png"/>
+    <material name="mat_bleach_cleanser" texture="tex_bleach_cleanser" specular="0.3" shininess="0.3"/>
+    <mesh name="mesh_bleach_cleanser" file="assets/ycb/asset/ycb_models/021_bleach_cleanser/google_16k/textured.obj"/>
+    <texture name="tex_mug" type="2d" file="assets/ycb/asset/ycb_models/025_mug/google_16k/texture_map.png"/>
+    <material name="mat_mug" texture="tex_mug" specular="0.3" shininess="0.3"/>
+    <mesh name="mesh_mug" file="assets/ycb/asset/ycb_models/025_mug/google_16k/textured.obj"/>
+    <texture name="tex_large_marker" type="2d" file="assets/ycb/asset/ycb_models/040_large_marker/google_16k/texture_map.png"/>
+    <material name="mat_large_marker" texture="tex_large_marker" specular="0.3" shininess="0.3"/>
+    <mesh name="mesh_large_marker" file="assets/ycb/asset/ycb_models/040_large_marker/google_16k/textured.obj"/>
+    <texture name="tex_coffee_mug" type="2d" file="assets/scanned/models/ACE_Coffee_Mug_Kristen_16_oz_cup/texture.png"/>
+    <material name="mat_coffee_mug" texture="tex_coffee_mug" specular="0.5" shininess="0.5"/>
+    <mesh name="mesh_coffee_mug" file="assets/scanned/models/ACE_Coffee_Mug_Kristen_16_oz_cup/model.obj"/>
+    <texture name="tex_fruit_snacks_grape" type="2d" file="assets/scanned/models/Black_Forest_Fruit_Snacks_28_Pack_Grape/texture.png"/>
+    <material name="mat_fruit_snacks_grape" texture="tex_fruit_snacks_grape" specular="0.5" shininess="0.5"/>
+    <mesh name="mesh_fruit_snacks_grape" file="assets/scanned/models/Black_Forest_Fruit_Snacks_28_Pack_Grape/model.obj"/>
+    <texture name="tex_brisk_tea" type="2d" file="assets/scanned/models/Brisk_Iced_Tea_Lemon_12_12_fl_oz_355_ml_cans_144_fl_oz_426_lt/texture.png"/>
+    <material name="mat_brisk_tea" texture="tex_brisk_tea" specular="0.5" shininess="0.5"/>
+    <mesh name="mesh_brisk_tea" file="assets/scanned/models/Brisk_Iced_Tea_Lemon_12_12_fl_oz_355_ml_cans_144_fl_oz_426_lt/model.obj"/>
+    <texture name="tex_milk_frother" type="2d" file="assets/scanned/models/Aroma_Stainless_Steel_Milk_Frother_2_Cup/texture.png"/>
+    <material name="mat_milk_frother" texture="tex_milk_frother" specular="0.5" shininess="0.5"/>
+    <mesh name="mesh_milk_frother" file="assets/scanned/models/Aroma_Stainless_Steel_Milk_Frother_2_Cup/model.obj"/>
+    <texture name="tex_porcelain_bowl" type="2d" file="assets/scanned/models/BIA_Porcelain_Ramekin_With_Glazed_Rim_35_45_oz_cup/texture.png"/>
+    <material name="mat_porcelain_bowl" texture="tex_porcelain_bowl" specular="0.5" shininess="0.5"/>
+    <mesh name="mesh_porcelain_bowl" file="assets/scanned/models/BIA_Porcelain_Ramekin_With_Glazed_Rim_35_45_oz_cup/model.obj"/>
+    <texture name="tex_plastic_bowl" type="2d" file="assets/scanned/models/Bradshaw_International_11642_7_Qt_MP_Plastic_Bowl/texture.png"/>
+    <material name="mat_plastic_bowl" texture="tex_plastic_bowl" specular="0.5" shininess="0.5"/>
+    <mesh name="mesh_plastic_bowl" file="assets/scanned/models/Bradshaw_International_11642_7_Qt_MP_Plastic_Bowl/model.obj"/>
+    <texture name="tex_elderberry_syrup" type="2d" file="assets/scanned/models/Black_Elderberry_Syrup_54_oz_Gaia_Herbs/texture.png"/>
+    <material name="mat_elderberry_syrup" texture="tex_elderberry_syrup" specular="0.5" shininess="0.5"/>
+    <mesh name="mesh_elderberry_syrup" file="assets/scanned/models/Black_Elderberry_Syrup_54_oz_Gaia_Herbs/model.obj"/>
+    <texture name="tex_fruit_snacks_juicy" type="2d" file="assets/scanned/models/Black_Forest_Fruit_Snacks_Juicy_Filled_Centers_10_pouches_9_oz_total/texture.png"/>
+    <material name="mat_fruit_snacks_juicy" texture="tex_fruit_snacks_juicy" specular="0.5" shininess="0.5"/>
+    <mesh name="mesh_fruit_snacks_juicy" file="assets/scanned/models/Black_Forest_Fruit_Snacks_Juicy_Filled_Centers_10_pouches_9_oz_total/model.obj"/>
+  </asset>
+  <worldbody>
+    <light name="light_center" pos="0 0 3" directional="true" castshadow="false" diffuse="0.5 0.5 0.5"/>
+    <light name="light_nw" pos="-2 3 3" directional="true" castshadow="false" diffuse="0.4 0.4 0.4"/>
+    <light name="light_ne" pos="2 3 3" directional="true" castshadow="false" diffuse="0.4 0.4 0.4"/>
+    <light name="light_sw" pos="-2 -3 3" directional="true" castshadow="false" diffuse="0.4 0.4 0.4"/>
+    <light name="light_se" pos="2 -3 3" directional="true" castshadow="false" diffuse="0.4 0.4 0.4"/>
+    <light name="light_n" pos="0 3 3" directional="true" castshadow="false" diffuse="0.4 0.4 0.4"/>
+    <light name="light_s" pos="0 -3 3" directional="true" castshadow="false" diffuse="0.4 0.4 0.4"/>
+    <light name="light_w" pos="-3 0 3" directional="true" castshadow="false" diffuse="0.4 0.4 0.4"/>
+    <light name="light_e" pos="3 0 3" directional="true" castshadow="false" diffuse="0.4 0.4 0.4"/>
+    <body name="floor" pos="0.0000 0.0000 -0.0100">
+      <geom name="floor_geom" pos="0.0000 0.0000 0.0000" type="box" size="3.0000 4.0000 0.0100" material="floor_mat"/>
+    </body>
+    <body name="divider_line" pos="0.0000 0.0000 0.0010">
+      <geom name="divider_geom" pos="0.0000 0.0000 0.0000" type="box" size="3.0000 0.0300 0.0010" material="divider_mat"/>
+    </body>
+    <body name="divider_black_1" pos="-2.7000 0.0000 0.0020">
+      <geom name="divider_black_1_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_3" pos="-2.3000 0.0000 0.0020">
+      <geom name="divider_black_3_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_5" pos="-1.9000 0.0000 0.0020">
+      <geom name="divider_black_5_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_7" pos="-1.5000 0.0000 0.0020">
+      <geom name="divider_black_7_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_9" pos="-1.1000 0.0000 0.0020">
+      <geom name="divider_black_9_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_11" pos="-0.7000 0.0000 0.0020">
+      <geom name="divider_black_11_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_13" pos="-0.3000 0.0000 0.0020">
+      <geom name="divider_black_13_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_15" pos="0.1000 0.0000 0.0020">
+      <geom name="divider_black_15_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_17" pos="0.5000 0.0000 0.0020">
+      <geom name="divider_black_17_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_19" pos="0.9000 0.0000 0.0020">
+      <geom name="divider_black_19_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_21" pos="1.3000 0.0000 0.0020">
+      <geom name="divider_black_21_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_23" pos="1.7000 0.0000 0.0020">
+      <geom name="divider_black_23_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_25" pos="2.1000 0.0000 0.0020">
+      <geom name="divider_black_25_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_27" pos="2.5000 0.0000 0.0020">
+      <geom name="divider_black_27_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="divider_black_29" pos="2.9000 0.0000 0.0020">
+      <geom name="divider_black_29_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0800 0.0300 0.0010" rgba="0.1 0.1 0.1 1.0"/>
+    </body>
+    <body name="start_zone_top" pos="0.0000 3.6000 0.0100">
+      <geom name="start_zone_top_geom" pos="0.0000 0.0000 0.0000" type="cylinder" size="0.3 0.002" material="start_zone_mat"/>
+      <site name="start_zone_top_site" pos="0.0000 0.0000 0.0500" size="0.05" rgba="0 0 0 0" type="sphere"/>
+    </body>
+    <body name="start_zone_bottom" pos="0.0000 -3.6000 0.0100">
+      <geom name="start_zone_bottom_geom" pos="0.0000 0.0000 0.0000" type="cylinder" size="0.3 0.002" material="start_zone_mat"/>
+      <site name="start_zone_bottom_site" pos="0.0000 0.0000 0.0500" size="0.05" rgba="0 0 0 0" type="sphere"/>
+    </body>
+    <body name="boundary_top" pos="0.0000 4.0000 0.0010">
+      <geom name="boundary_top_geom" pos="0.0000 0.0000 0.0000" type="box" size="3.0000 0.0100 0.0010" material="boundary_mat"/>
+    </body>
+    <body name="boundary_bottom" pos="0.0000 -4.0000 0.0010">
+      <geom name="boundary_bottom_geom" pos="0.0000 0.0000 0.0000" type="box" size="3.0000 0.0100 0.0010" material="boundary_mat"/>
+    </body>
+    <body name="boundary_left" pos="-3.0000 0.0000 0.0010">
+      <geom name="boundary_left_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0100 4.0000 0.0010" material="boundary_mat"/>
+    </body>
+    <body name="boundary_right" pos="3.0000 0.0000 0.0010">
+      <geom name="boundary_right_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0100 4.0000 0.0010" material="boundary_mat"/>
+    </body>
+    <body name="wall_top" pos="0.0000 4.0250 0.1250">
+      <geom name="wall_top_geom" pos="0.0000 0.0000 0.0000" type="box" size="3.0250 0.0250 0.1250" material="wall_mat"/>
+    </body>
+    <body name="wall_bottom" pos="0.0000 -4.0250 0.1250">
+      <geom name="wall_bottom_geom" pos="0.0000 0.0000 0.0000" type="box" size="3.0250 0.0250 0.1250" material="wall_mat"/>
+    </body>
+    <body name="wall_left" pos="-3.0250 0.0000 0.1250">
+      <geom name="wall_left_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0250 4.0250 0.1250" material="wall_mat"/>
+    </body>
+    <body name="wall_right" pos="3.0250 0.0000 0.1250">
+      <geom name="wall_right_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0250 4.0250 0.1250" material="wall_mat"/>
+    </body>
+    <body name="shelf_group_1" pos="-1.1000 1.1800 0.0000">
+      <body name="shelf_group_1_back_panel" pos="0.0000 0.0000 0.8250">
+        <geom name="shelf_group_1_back_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0025 0.9300 0.8250" material="shelf_mat"/>
+      </body>
+      <body name="shelf_group_1_shelf_level_0" pos="0.0000 0.0000 0.0500">
+        <geom name="shelf_group_1_shelf_L0_neg_body" pos="-0.2025 0.0000 0.0000" type="box" size="0.2000 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_1_shelf_L0_neg_face" pos="-0.4015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_1_shelf_L0_pos_body" pos="0.2025 0.0000 0.0000" type="box" size="0.2000 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_1_shelf_L0_pos_face" pos="0.4015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_1_L0_face_neg" pos="-0.4525 0.0000 0.0500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_1_L0_face_pos" pos="0.4525 0.0000 0.0500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_1_shelf_level_1" pos="0.0000 0.0000 0.4500">
+        <geom name="shelf_group_1_shelf_L1_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_1_shelf_L1_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_1_shelf_L1_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_1_shelf_L1_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_1_L1_face_neg" pos="-0.3525 0.0000 0.4500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_1_L1_face_pos" pos="0.3525 0.0000 0.4500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_1_shelf_level_2" pos="0.0000 0.0000 0.8500">
+        <geom name="shelf_group_1_shelf_L2_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_1_shelf_L2_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_1_shelf_L2_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_1_shelf_L2_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_1_L2_face_neg" pos="-0.3525 0.0000 0.8500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_1_L2_face_pos" pos="0.3525 0.0000 0.8500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_1_shelf_level_3" pos="0.0000 0.0000 1.2500">
+        <geom name="shelf_group_1_shelf_L3_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_1_shelf_L3_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_1_shelf_L3_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_1_shelf_L3_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_1_L3_face_neg" pos="-0.3525 0.0000 1.2500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_1_L3_face_pos" pos="0.3525 0.0000 1.2500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_1_shelf_level_4" pos="0.0000 0.0000 1.6500">
+        <geom name="shelf_group_1_shelf_L4_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_1_shelf_L4_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_1_shelf_L4_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_1_shelf_L4_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_1_L4_face_neg" pos="-0.3525 0.0000 1.6500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_1_L4_face_pos" pos="0.3525 0.0000 1.6500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+    </body>
+    <body name="product_cracker_box_uid0" pos="-1.3785 0.4619 0.2100">
+      <freejoint name="product_cracker_box_uid0_joint"/>
+      <geom name="product_cracker_box_uid0_visual" type="mesh" mesh="mesh_cracker_box" material="mat_cracker_box" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_cracker_box_uid0_collision" type="mesh" mesh="mesh_cracker_box" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_sugar_box_uid1" pos="-1.2793 1.9212 0.2100">
+      <freejoint name="product_sugar_box_uid1_joint"/>
+      <geom name="product_sugar_box_uid1_visual" type="mesh" mesh="mesh_sugar_box" material="mat_sugar_box" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_sugar_box_uid1_collision" type="mesh" mesh="mesh_sugar_box" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_sugar_box_uid2" pos="-1.0036 0.4362 0.2100">
+      <freejoint name="product_sugar_box_uid2_joint"/>
+      <geom name="product_sugar_box_uid2_visual" type="mesh" mesh="mesh_sugar_box" material="mat_sugar_box" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_sugar_box_uid2_collision" type="mesh" mesh="mesh_sugar_box" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_tomato_soup_can_uid3" pos="-0.8732 1.1946 0.2100">
+      <freejoint name="product_tomato_soup_can_uid3_joint"/>
+      <geom name="product_tomato_soup_can_uid3_visual" type="mesh" mesh="mesh_tomato_soup_can" material="mat_tomato_soup_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_tomato_soup_can_uid3_collision" type="mesh" mesh="mesh_tomato_soup_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_tuna_fish_can_uid4" pos="-1.0126 1.9183 0.2100">
+      <freejoint name="product_tuna_fish_can_uid4_joint"/>
+      <geom name="product_tuna_fish_can_uid4_visual" type="mesh" mesh="mesh_tuna_fish_can" material="mat_tuna_fish_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_tuna_fish_can_uid4_collision" type="mesh" mesh="mesh_tuna_fish_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_sugar_box_uid5" pos="-1.1911 0.4589 0.6100">
+      <freejoint name="product_sugar_box_uid5_joint"/>
+      <geom name="product_sugar_box_uid5_visual" type="mesh" mesh="mesh_sugar_box" material="mat_sugar_box" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_sugar_box_uid5_collision" type="mesh" mesh="mesh_sugar_box" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_tomato_soup_can_uid6" pos="-1.1836 1.1600 0.6100">
+      <freejoint name="product_tomato_soup_can_uid6_joint"/>
+      <geom name="product_tomato_soup_can_uid6_visual" type="mesh" mesh="mesh_tomato_soup_can" material="mat_tomato_soup_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_tomato_soup_can_uid6_collision" type="mesh" mesh="mesh_tomato_soup_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_tuna_fish_can_uid7" pos="-1.2369 1.9147 0.6100">
+      <freejoint name="product_tuna_fish_can_uid7_joint"/>
+      <geom name="product_tuna_fish_can_uid7_visual" type="mesh" mesh="mesh_tuna_fish_can" material="mat_tuna_fish_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_tuna_fish_can_uid7_collision" type="mesh" mesh="mesh_tuna_fish_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_tomato_soup_can_uid8" pos="-0.9767 0.4473 0.6100">
+      <freejoint name="product_tomato_soup_can_uid8_joint"/>
+      <geom name="product_tomato_soup_can_uid8_visual" type="mesh" mesh="mesh_tomato_soup_can" material="mat_tomato_soup_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_tomato_soup_can_uid8_collision" type="mesh" mesh="mesh_tomato_soup_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_tuna_fish_can_uid9" pos="-0.9980 1.9145 0.6100">
+      <freejoint name="product_tuna_fish_can_uid9_joint"/>
+      <geom name="product_tuna_fish_can_uid9_visual" type="mesh" mesh="mesh_tuna_fish_can" material="mat_tuna_fish_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_tuna_fish_can_uid9_collision" type="mesh" mesh="mesh_tuna_fish_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_tomato_soup_can_uid10" pos="-1.2899 0.4690 1.0100">
+      <freejoint name="product_tomato_soup_can_uid10_joint"/>
+      <geom name="product_tomato_soup_can_uid10_visual" type="mesh" mesh="mesh_tomato_soup_can" material="mat_tomato_soup_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_tomato_soup_can_uid10_collision" type="mesh" mesh="mesh_tomato_soup_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_tuna_fish_can_uid11" pos="-1.2359 1.1636 1.0100">
+      <freejoint name="product_tuna_fish_can_uid11_joint"/>
+      <geom name="product_tuna_fish_can_uid11_visual" type="mesh" mesh="mesh_tuna_fish_can" material="mat_tuna_fish_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_tuna_fish_can_uid11_collision" type="mesh" mesh="mesh_tuna_fish_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_potted_meat_can_uid12" pos="-1.1848 1.9053 1.0100">
+      <freejoint name="product_potted_meat_can_uid12_joint"/>
+      <geom name="product_potted_meat_can_uid12_visual" type="mesh" mesh="mesh_potted_meat_can" material="mat_potted_meat_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_potted_meat_can_uid12_collision" type="mesh" mesh="mesh_potted_meat_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_tuna_fish_can_uid13" pos="-0.9324 0.4319 1.0100">
+      <freejoint name="product_tuna_fish_can_uid13_joint"/>
+      <geom name="product_tuna_fish_can_uid13_visual" type="mesh" mesh="mesh_tuna_fish_can" material="mat_tuna_fish_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_tuna_fish_can_uid13_collision" type="mesh" mesh="mesh_tuna_fish_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_potted_meat_can_uid14" pos="-1.0084 1.8968 1.0100">
+      <freejoint name="product_potted_meat_can_uid14_joint"/>
+      <geom name="product_potted_meat_can_uid14_visual" type="mesh" mesh="mesh_potted_meat_can" material="mat_potted_meat_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_potted_meat_can_uid14_collision" type="mesh" mesh="mesh_potted_meat_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_tuna_fish_can_uid15" pos="-1.2436 0.4677 1.4100">
+      <freejoint name="product_tuna_fish_can_uid15_joint"/>
+      <geom name="product_tuna_fish_can_uid15_visual" type="mesh" mesh="mesh_tuna_fish_can" material="mat_tuna_fish_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_tuna_fish_can_uid15_collision" type="mesh" mesh="mesh_tuna_fish_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_potted_meat_can_uid16" pos="-1.3203 1.1754 1.4100">
+      <freejoint name="product_potted_meat_can_uid16_joint"/>
+      <geom name="product_potted_meat_can_uid16_visual" type="mesh" mesh="mesh_potted_meat_can" material="mat_potted_meat_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_potted_meat_can_uid16_collision" type="mesh" mesh="mesh_potted_meat_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_banana_uid17" pos="-1.2888 1.8992 1.4100">
+      <freejoint name="product_banana_uid17_joint"/>
+      <geom name="product_banana_uid17_visual" type="mesh" mesh="mesh_banana" material="mat_banana" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_banana_uid17_collision" type="mesh" mesh="mesh_banana" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_potted_meat_can_uid18" pos="-0.9482 0.4349 1.4100">
+      <freejoint name="product_potted_meat_can_uid18_joint"/>
+      <geom name="product_potted_meat_can_uid18_visual" type="mesh" mesh="mesh_potted_meat_can" material="mat_potted_meat_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_potted_meat_can_uid18_collision" type="mesh" mesh="mesh_potted_meat_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_banana_uid19" pos="-0.8902 1.1614 1.4100">
+      <freejoint name="product_banana_uid19_joint"/>
+      <geom name="product_banana_uid19_visual" type="mesh" mesh="mesh_banana" material="mat_banana" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_banana_uid19_collision" type="mesh" mesh="mesh_banana" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_grape_uid20" pos="-0.9247 1.9004 1.4100">
+      <freejoint name="product_fruit_snacks_grape_uid20_joint"/>
+      <geom name="product_fruit_snacks_grape_uid20_visual" type="mesh" mesh="mesh_fruit_snacks_grape" material="mat_fruit_snacks_grape" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_grape_uid20_collision" type="mesh" mesh="mesh_fruit_snacks_grape" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_potted_meat_can_uid21" pos="-1.2934 0.4470 1.8100">
+      <freejoint name="product_potted_meat_can_uid21_joint"/>
+      <geom name="product_potted_meat_can_uid21_visual" type="mesh" mesh="mesh_potted_meat_can" material="mat_potted_meat_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_potted_meat_can_uid21_collision" type="mesh" mesh="mesh_potted_meat_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_banana_uid22" pos="-1.3181 1.1827 1.8100">
+      <freejoint name="product_banana_uid22_joint"/>
+      <geom name="product_banana_uid22_visual" type="mesh" mesh="mesh_banana" material="mat_banana" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_banana_uid22_collision" type="mesh" mesh="mesh_banana" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_grape_uid23" pos="-1.2595 1.9237 1.8100">
+      <freejoint name="product_fruit_snacks_grape_uid23_joint"/>
+      <geom name="product_fruit_snacks_grape_uid23_visual" type="mesh" mesh="mesh_fruit_snacks_grape" material="mat_fruit_snacks_grape" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_grape_uid23_collision" type="mesh" mesh="mesh_fruit_snacks_grape" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_banana_uid24" pos="-0.9338 0.4658 1.8100">
+      <freejoint name="product_banana_uid24_joint"/>
+      <geom name="product_banana_uid24_visual" type="mesh" mesh="mesh_banana" material="mat_banana" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_banana_uid24_collision" type="mesh" mesh="mesh_banana" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_grape_uid25" pos="-1.0051 1.1969 1.8100">
+      <freejoint name="product_fruit_snacks_grape_uid25_joint"/>
+      <geom name="product_fruit_snacks_grape_uid25_visual" type="mesh" mesh="mesh_fruit_snacks_grape" material="mat_fruit_snacks_grape" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_grape_uid25_collision" type="mesh" mesh="mesh_fruit_snacks_grape" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_juicy_uid26" pos="-1.0112 1.8978 1.8100">
+      <freejoint name="product_fruit_snacks_juicy_uid26_joint"/>
+      <geom name="product_fruit_snacks_juicy_uid26_visual" type="mesh" mesh="mesh_fruit_snacks_juicy" material="mat_fruit_snacks_juicy" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_juicy_uid26_collision" type="mesh" mesh="mesh_fruit_snacks_juicy" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="shelf_group_2" pos="1.1000 1.1800 0.0000">
+      <body name="shelf_group_2_back_panel" pos="0.0000 0.0000 0.8250">
+        <geom name="shelf_group_2_back_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0025 0.9300 0.8250" material="shelf_mat"/>
+      </body>
+      <body name="shelf_group_2_shelf_level_0" pos="0.0000 0.0000 0.0500">
+        <geom name="shelf_group_2_shelf_L0_neg_body" pos="-0.2025 0.0000 0.0000" type="box" size="0.2000 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_2_shelf_L0_neg_face" pos="-0.4015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_2_shelf_L0_pos_body" pos="0.2025 0.0000 0.0000" type="box" size="0.2000 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_2_shelf_L0_pos_face" pos="0.4015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_2_L0_face_neg" pos="-0.4525 0.0000 0.0500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_2_L0_face_pos" pos="0.4525 0.0000 0.0500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_2_shelf_level_1" pos="0.0000 0.0000 0.4500">
+        <geom name="shelf_group_2_shelf_L1_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_2_shelf_L1_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_2_shelf_L1_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_2_shelf_L1_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_2_L1_face_neg" pos="-0.3525 0.0000 0.4500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_2_L1_face_pos" pos="0.3525 0.0000 0.4500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_2_shelf_level_2" pos="0.0000 0.0000 0.8500">
+        <geom name="shelf_group_2_shelf_L2_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_2_shelf_L2_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_2_shelf_L2_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_2_shelf_L2_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_2_L2_face_neg" pos="-0.3525 0.0000 0.8500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_2_L2_face_pos" pos="0.3525 0.0000 0.8500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_2_shelf_level_3" pos="0.0000 0.0000 1.2500">
+        <geom name="shelf_group_2_shelf_L3_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_2_shelf_L3_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_2_shelf_L3_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_2_shelf_L3_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_2_L3_face_neg" pos="-0.3525 0.0000 1.2500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_2_L3_face_pos" pos="0.3525 0.0000 1.2500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_2_shelf_level_4" pos="0.0000 0.0000 1.6500">
+        <geom name="shelf_group_2_shelf_L4_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_2_shelf_L4_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_2_shelf_L4_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_2_shelf_L4_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_2_L4_face_neg" pos="-0.3525 0.0000 1.6500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_2_L4_face_pos" pos="0.3525 0.0000 1.6500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+    </body>
+    <body name="product_tuna_fish_can_uid27" pos="0.8022 0.4499 0.2100">
+      <freejoint name="product_tuna_fish_can_uid27_joint"/>
+      <geom name="product_tuna_fish_can_uid27_visual" type="mesh" mesh="mesh_tuna_fish_can" material="mat_tuna_fish_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_tuna_fish_can_uid27_collision" type="mesh" mesh="mesh_tuna_fish_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_potted_meat_can_uid28" pos="0.8188 1.8960 0.2100">
+      <freejoint name="product_potted_meat_can_uid28_joint"/>
+      <geom name="product_potted_meat_can_uid28_visual" type="mesh" mesh="mesh_potted_meat_can" material="mat_potted_meat_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_potted_meat_can_uid28_collision" type="mesh" mesh="mesh_potted_meat_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_grape_uid29" pos="1.3424 0.4644 0.2100">
+      <freejoint name="product_fruit_snacks_grape_uid29_joint"/>
+      <geom name="product_fruit_snacks_grape_uid29_visual" type="mesh" mesh="mesh_fruit_snacks_grape" material="mat_fruit_snacks_grape" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_grape_uid29_collision" type="mesh" mesh="mesh_fruit_snacks_grape" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_juicy_uid30" pos="1.1895 1.1816 0.2100">
+      <freejoint name="product_fruit_snacks_juicy_uid30_joint"/>
+      <geom name="product_fruit_snacks_juicy_uid30_visual" type="mesh" mesh="mesh_fruit_snacks_juicy" material="mat_fruit_snacks_juicy" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_juicy_uid30_collision" type="mesh" mesh="mesh_fruit_snacks_juicy" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_mustard_bottle_uid31" pos="1.2773 1.9193 0.2100">
+      <freejoint name="product_mustard_bottle_uid31_joint"/>
+      <geom name="product_mustard_bottle_uid31_visual" type="mesh" mesh="mesh_mustard_bottle" material="mat_mustard_bottle" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_mustard_bottle_uid31_collision" type="mesh" mesh="mesh_mustard_bottle" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_potted_meat_can_uid32" pos="0.9430 0.4305 0.6100">
+      <freejoint name="product_potted_meat_can_uid32_joint"/>
+      <geom name="product_potted_meat_can_uid32_visual" type="mesh" mesh="mesh_potted_meat_can" material="mat_potted_meat_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_potted_meat_can_uid32_collision" type="mesh" mesh="mesh_potted_meat_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_banana_uid33" pos="0.9553 1.1982 0.6100">
+      <freejoint name="product_banana_uid33_joint"/>
+      <geom name="product_banana_uid33_visual" type="mesh" mesh="mesh_banana" material="mat_banana" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_banana_uid33_collision" type="mesh" mesh="mesh_banana" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_grape_uid34" pos="0.9588 1.9160 0.6100">
+      <freejoint name="product_fruit_snacks_grape_uid34_joint"/>
+      <geom name="product_fruit_snacks_grape_uid34_visual" type="mesh" mesh="mesh_fruit_snacks_grape" material="mat_fruit_snacks_grape" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_grape_uid34_collision" type="mesh" mesh="mesh_fruit_snacks_grape" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_juicy_uid35" pos="1.3006 0.4331 0.6100">
+      <freejoint name="product_fruit_snacks_juicy_uid35_joint"/>
+      <geom name="product_fruit_snacks_juicy_uid35_visual" type="mesh" mesh="mesh_fruit_snacks_juicy" material="mat_fruit_snacks_juicy" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_juicy_uid35_collision" type="mesh" mesh="mesh_fruit_snacks_juicy" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_mustard_bottle_uid36" pos="1.3185 1.9240 0.6100">
+      <freejoint name="product_mustard_bottle_uid36_joint"/>
+      <geom name="product_mustard_bottle_uid36_visual" type="mesh" mesh="mesh_mustard_bottle" material="mat_mustard_bottle" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_mustard_bottle_uid36_collision" type="mesh" mesh="mesh_mustard_bottle" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_banana_uid37" pos="0.9552 0.4650 1.0100">
+      <freejoint name="product_banana_uid37_joint"/>
+      <geom name="product_banana_uid37_visual" type="mesh" mesh="mesh_banana" material="mat_banana" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_banana_uid37_collision" type="mesh" mesh="mesh_banana" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_grape_uid38" pos="0.8971 1.9072 1.0100">
+      <freejoint name="product_fruit_snacks_grape_uid38_joint"/>
+      <geom name="product_fruit_snacks_grape_uid38_visual" type="mesh" mesh="mesh_fruit_snacks_grape" material="mat_fruit_snacks_grape" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_grape_uid38_collision" type="mesh" mesh="mesh_fruit_snacks_grape" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_mustard_bottle_uid39" pos="1.2242 0.4659 1.0100">
+      <freejoint name="product_mustard_bottle_uid39_joint"/>
+      <geom name="product_mustard_bottle_uid39_visual" type="mesh" mesh="mesh_mustard_bottle" material="mat_mustard_bottle" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_mustard_bottle_uid39_collision" type="mesh" mesh="mesh_mustard_bottle" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_pitcher_base_uid40" pos="1.1832 1.9005 1.0100">
+      <freejoint name="product_pitcher_base_uid40_joint"/>
+      <geom name="product_pitcher_base_uid40_visual" type="mesh" mesh="mesh_pitcher_base" material="mat_pitcher_base" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_pitcher_base_uid40_collision" type="mesh" mesh="mesh_pitcher_base" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_grape_uid41" pos="0.9930 0.4478 1.4100">
+      <freejoint name="product_fruit_snacks_grape_uid41_joint"/>
+      <geom name="product_fruit_snacks_grape_uid41_visual" type="mesh" mesh="mesh_fruit_snacks_grape" material="mat_fruit_snacks_grape" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_grape_uid41_collision" type="mesh" mesh="mesh_fruit_snacks_grape" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_juicy_uid42" pos="0.9330 1.8965 1.4100">
+      <freejoint name="product_fruit_snacks_juicy_uid42_joint"/>
+      <geom name="product_fruit_snacks_juicy_uid42_visual" type="mesh" mesh="mesh_fruit_snacks_juicy" material="mat_fruit_snacks_juicy" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_juicy_uid42_collision" type="mesh" mesh="mesh_fruit_snacks_juicy" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_pitcher_base_uid43" pos="1.2560 0.4664 1.4100">
+      <freejoint name="product_pitcher_base_uid43_joint"/>
+      <geom name="product_pitcher_base_uid43_visual" type="mesh" mesh="mesh_pitcher_base" material="mat_pitcher_base" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_pitcher_base_uid43_collision" type="mesh" mesh="mesh_pitcher_base" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_mug_uid44" pos="1.2078 1.1642 1.4100">
+      <freejoint name="product_mug_uid44_joint"/>
+      <geom name="product_mug_uid44_visual" type="mesh" mesh="mesh_mug" material="mat_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_mug_uid44_collision" type="mesh" mesh="mesh_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_coffee_mug_uid45" pos="1.2402 1.9281 1.4100">
+      <freejoint name="product_coffee_mug_uid45_joint"/>
+      <geom name="product_coffee_mug_uid45_visual" type="mesh" mesh="mesh_coffee_mug" material="mat_coffee_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_coffee_mug_uid45_collision" type="mesh" mesh="mesh_coffee_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_juicy_uid46" pos="0.9145 0.4544 1.8100">
+      <freejoint name="product_fruit_snacks_juicy_uid46_joint"/>
+      <geom name="product_fruit_snacks_juicy_uid46_visual" type="mesh" mesh="mesh_fruit_snacks_juicy" material="mat_fruit_snacks_juicy" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_juicy_uid46_collision" type="mesh" mesh="mesh_fruit_snacks_juicy" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_mustard_bottle_uid47" pos="1.0080 1.1969 1.8100">
+      <freejoint name="product_mustard_bottle_uid47_joint"/>
+      <geom name="product_mustard_bottle_uid47_visual" type="mesh" mesh="mesh_mustard_bottle" material="mat_mustard_bottle" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_mustard_bottle_uid47_collision" type="mesh" mesh="mesh_mustard_bottle" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_pitcher_base_uid48" pos="0.9901 1.8954 1.8100">
+      <freejoint name="product_pitcher_base_uid48_joint"/>
+      <geom name="product_pitcher_base_uid48_visual" type="mesh" mesh="mesh_pitcher_base" material="mat_pitcher_base" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_pitcher_base_uid48_collision" type="mesh" mesh="mesh_pitcher_base" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_mug_uid49" pos="1.2855 0.4697 1.8100">
+      <freejoint name="product_mug_uid49_joint"/>
+      <geom name="product_mug_uid49_visual" type="mesh" mesh="mesh_mug" material="mat_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_mug_uid49_collision" type="mesh" mesh="mesh_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_coffee_mug_uid50" pos="1.2610 1.1778 1.8100">
+      <freejoint name="product_coffee_mug_uid50_joint"/>
+      <geom name="product_coffee_mug_uid50_visual" type="mesh" mesh="mesh_coffee_mug" material="mat_coffee_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_coffee_mug_uid50_collision" type="mesh" mesh="mesh_coffee_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_milk_frother_uid51" pos="1.2843 1.9065 1.8100">
+      <freejoint name="product_milk_frother_uid51_joint"/>
+      <geom name="product_milk_frother_uid51_visual" type="mesh" mesh="mesh_milk_frother" material="mat_milk_frother" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_milk_frother_uid51_collision" type="mesh" mesh="mesh_milk_frother" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="shelf_group_3" pos="-1.1000 -1.1800 0.0000">
+      <body name="shelf_group_3_back_panel" pos="0.0000 0.0000 0.8250">
+        <geom name="shelf_group_3_back_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0025 0.9300 0.8250" material="shelf_mat"/>
+      </body>
+      <body name="shelf_group_3_shelf_level_0" pos="0.0000 0.0000 0.0500">
+        <geom name="shelf_group_3_shelf_L0_neg_body" pos="-0.2025 0.0000 0.0000" type="box" size="0.2000 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_3_shelf_L0_neg_face" pos="-0.4015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_3_shelf_L0_pos_body" pos="0.2025 0.0000 0.0000" type="box" size="0.2000 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_3_shelf_L0_pos_face" pos="0.4015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_3_L0_face_neg" pos="-0.4525 0.0000 0.0500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_3_L0_face_pos" pos="0.4525 0.0000 0.0500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_3_shelf_level_1" pos="0.0000 0.0000 0.4500">
+        <geom name="shelf_group_3_shelf_L1_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_3_shelf_L1_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_3_shelf_L1_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_3_shelf_L1_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_3_L1_face_neg" pos="-0.3525 0.0000 0.4500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_3_L1_face_pos" pos="0.3525 0.0000 0.4500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_3_shelf_level_2" pos="0.0000 0.0000 0.8500">
+        <geom name="shelf_group_3_shelf_L2_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_3_shelf_L2_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_3_shelf_L2_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_3_shelf_L2_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_3_L2_face_neg" pos="-0.3525 0.0000 0.8500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_3_L2_face_pos" pos="0.3525 0.0000 0.8500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_3_shelf_level_3" pos="0.0000 0.0000 1.2500">
+        <geom name="shelf_group_3_shelf_L3_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_3_shelf_L3_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_3_shelf_L3_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_3_shelf_L3_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_3_L3_face_neg" pos="-0.3525 0.0000 1.2500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_3_L3_face_pos" pos="0.3525 0.0000 1.2500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_3_shelf_level_4" pos="0.0000 0.0000 1.6500">
+        <geom name="shelf_group_3_shelf_L4_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_3_shelf_L4_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_3_shelf_L4_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_3_shelf_L4_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_3_L4_face_neg" pos="-0.3525 0.0000 1.6500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_3_L4_face_pos" pos="0.3525 0.0000 1.6500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+    </body>
+    <body name="product_fruit_snacks_grape_uid52" pos="-1.4149 -1.9127 0.2100">
+      <freejoint name="product_fruit_snacks_grape_uid52_joint"/>
+      <geom name="product_fruit_snacks_grape_uid52_visual" type="mesh" mesh="mesh_fruit_snacks_grape" material="mat_fruit_snacks_grape" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_grape_uid52_collision" type="mesh" mesh="mesh_fruit_snacks_grape" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_juicy_uid53" pos="-1.3782 -0.4449 0.2100">
+      <freejoint name="product_fruit_snacks_juicy_uid53_joint"/>
+      <geom name="product_fruit_snacks_juicy_uid53_visual" type="mesh" mesh="mesh_fruit_snacks_juicy" material="mat_fruit_snacks_juicy" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_juicy_uid53_collision" type="mesh" mesh="mesh_fruit_snacks_juicy" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_coffee_mug_uid54" pos="-0.9230 -1.9056 0.2100">
+      <freejoint name="product_coffee_mug_uid54_joint"/>
+      <geom name="product_coffee_mug_uid54_visual" type="mesh" mesh="mesh_coffee_mug" material="mat_coffee_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_coffee_mug_uid54_collision" type="mesh" mesh="mesh_coffee_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_milk_frother_uid55" pos="-0.8951 -1.1836 0.2100">
+      <freejoint name="product_milk_frother_uid55_joint"/>
+      <geom name="product_milk_frother_uid55_visual" type="mesh" mesh="mesh_milk_frother" material="mat_milk_frother" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_milk_frother_uid55_collision" type="mesh" mesh="mesh_milk_frother" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_elderberry_syrup_uid56" pos="-0.7870 -0.4416 0.2100">
+      <freejoint name="product_elderberry_syrup_uid56_joint"/>
+      <geom name="product_elderberry_syrup_uid56_visual" type="mesh" mesh="mesh_elderberry_syrup" material="mat_elderberry_syrup" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_elderberry_syrup_uid56_collision" type="mesh" mesh="mesh_elderberry_syrup" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_fruit_snacks_juicy_uid57" pos="-1.2479 -1.8981 0.6100">
+      <freejoint name="product_fruit_snacks_juicy_uid57_joint"/>
+      <geom name="product_fruit_snacks_juicy_uid57_visual" type="mesh" mesh="mesh_fruit_snacks_juicy" material="mat_fruit_snacks_juicy" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_fruit_snacks_juicy_uid57_collision" type="mesh" mesh="mesh_fruit_snacks_juicy" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_mustard_bottle_uid58" pos="-1.2977 -1.1930 0.6100">
+      <freejoint name="product_mustard_bottle_uid58_joint"/>
+      <geom name="product_mustard_bottle_uid58_visual" type="mesh" mesh="mesh_mustard_bottle" material="mat_mustard_bottle" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_mustard_bottle_uid58_collision" type="mesh" mesh="mesh_mustard_bottle" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_pitcher_base_uid59" pos="-1.2665 -0.4406 0.6100">
+      <freejoint name="product_pitcher_base_uid59_joint"/>
+      <geom name="product_pitcher_base_uid59_visual" type="mesh" mesh="mesh_pitcher_base" material="mat_pitcher_base" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_pitcher_base_uid59_collision" type="mesh" mesh="mesh_pitcher_base" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_milk_frother_uid60" pos="-0.9876 -1.9041 0.6100">
+      <freejoint name="product_milk_frother_uid60_joint"/>
+      <geom name="product_milk_frother_uid60_visual" type="mesh" mesh="mesh_milk_frother" material="mat_milk_frother" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_milk_frother_uid60_collision" type="mesh" mesh="mesh_milk_frother" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_elderberry_syrup_uid61" pos="-0.9980 -0.4445 0.6100">
+      <freejoint name="product_elderberry_syrup_uid61_joint"/>
+      <geom name="product_elderberry_syrup_uid61_visual" type="mesh" mesh="mesh_elderberry_syrup" material="mat_elderberry_syrup" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_elderberry_syrup_uid61_collision" type="mesh" mesh="mesh_elderberry_syrup" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_mustard_bottle_uid62" pos="-1.2813 -1.9244 1.0100">
+      <freejoint name="product_mustard_bottle_uid62_joint"/>
+      <geom name="product_mustard_bottle_uid62_visual" type="mesh" mesh="mesh_mustard_bottle" material="mat_mustard_bottle" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_mustard_bottle_uid62_collision" type="mesh" mesh="mesh_mustard_bottle" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_pitcher_base_uid63" pos="-1.2105 -0.4358 1.0100">
+      <freejoint name="product_pitcher_base_uid63_joint"/>
+      <geom name="product_pitcher_base_uid63_visual" type="mesh" mesh="mesh_pitcher_base" material="mat_pitcher_base" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_pitcher_base_uid63_collision" type="mesh" mesh="mesh_pitcher_base" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_elderberry_syrup_uid64" pos="-0.9387 -1.9240 1.0100">
+      <freejoint name="product_elderberry_syrup_uid64_joint"/>
+      <geom name="product_elderberry_syrup_uid64_visual" type="mesh" mesh="mesh_elderberry_syrup" material="mat_elderberry_syrup" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_elderberry_syrup_uid64_collision" type="mesh" mesh="mesh_elderberry_syrup" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_brisk_tea_uid65" pos="-0.9933 -0.4636 1.0100">
+      <freejoint name="product_brisk_tea_uid65_joint"/>
+      <geom name="product_brisk_tea_uid65_visual" type="mesh" mesh="mesh_brisk_tea" material="mat_brisk_tea" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_brisk_tea_uid65_collision" type="mesh" mesh="mesh_brisk_tea" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_pitcher_base_uid66" pos="-1.2303 -1.9106 1.4100">
+      <freejoint name="product_pitcher_base_uid66_joint"/>
+      <geom name="product_pitcher_base_uid66_visual" type="mesh" mesh="mesh_pitcher_base" material="mat_pitcher_base" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_pitcher_base_uid66_collision" type="mesh" mesh="mesh_pitcher_base" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_mug_uid67" pos="-1.1850 -1.1914 1.4100">
+      <freejoint name="product_mug_uid67_joint"/>
+      <geom name="product_mug_uid67_visual" type="mesh" mesh="mesh_mug" material="mat_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_mug_uid67_collision" type="mesh" mesh="mesh_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_coffee_mug_uid68" pos="-1.2297 -0.4663 1.4100">
+      <freejoint name="product_coffee_mug_uid68_joint"/>
+      <geom name="product_coffee_mug_uid68_visual" type="mesh" mesh="mesh_coffee_mug" material="mat_coffee_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_coffee_mug_uid68_collision" type="mesh" mesh="mesh_coffee_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_brisk_tea_uid69" pos="-1.0093 -1.9094 1.4100">
+      <freejoint name="product_brisk_tea_uid69_joint"/>
+      <geom name="product_brisk_tea_uid69_visual" type="mesh" mesh="mesh_brisk_tea" material="mat_brisk_tea" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_brisk_tea_uid69_collision" type="mesh" mesh="mesh_brisk_tea" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_bleach_cleanser_uid70" pos="-1.0073 -1.1716 1.4100">
+      <freejoint name="product_bleach_cleanser_uid70_joint"/>
+      <geom name="product_bleach_cleanser_uid70_visual" type="mesh" mesh="mesh_bleach_cleanser" material="mat_bleach_cleanser" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_bleach_cleanser_uid70_collision" type="mesh" mesh="mesh_bleach_cleanser" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_large_marker_uid71" pos="-0.9159 -0.4347 1.4100">
+      <freejoint name="product_large_marker_uid71_joint"/>
+      <geom name="product_large_marker_uid71_visual" type="mesh" mesh="mesh_large_marker" material="mat_large_marker" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_large_marker_uid71_collision" type="mesh" mesh="mesh_large_marker" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_mug_uid72" pos="-1.2190 -1.9050 1.8100">
+      <freejoint name="product_mug_uid72_joint"/>
+      <geom name="product_mug_uid72_visual" type="mesh" mesh="mesh_mug" material="mat_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_mug_uid72_collision" type="mesh" mesh="mesh_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_coffee_mug_uid73" pos="-1.3113 -1.1976 1.8100">
+      <freejoint name="product_coffee_mug_uid73_joint"/>
+      <geom name="product_coffee_mug_uid73_visual" type="mesh" mesh="mesh_coffee_mug" material="mat_coffee_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_coffee_mug_uid73_collision" type="mesh" mesh="mesh_coffee_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_milk_frother_uid74" pos="-1.2075 -0.4624 1.8100">
+      <freejoint name="product_milk_frother_uid74_joint"/>
+      <geom name="product_milk_frother_uid74_visual" type="mesh" mesh="mesh_milk_frother" material="mat_milk_frother" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_milk_frother_uid74_collision" type="mesh" mesh="mesh_milk_frother" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_bleach_cleanser_uid75" pos="-1.0022 -1.9103 1.8100">
+      <freejoint name="product_bleach_cleanser_uid75_joint"/>
+      <geom name="product_bleach_cleanser_uid75_visual" type="mesh" mesh="mesh_bleach_cleanser" material="mat_bleach_cleanser" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_bleach_cleanser_uid75_collision" type="mesh" mesh="mesh_bleach_cleanser" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_large_marker_uid76" pos="-0.8797 -0.4639 1.8100">
+      <freejoint name="product_large_marker_uid76_joint"/>
+      <geom name="product_large_marker_uid76_visual" type="mesh" mesh="mesh_large_marker" material="mat_large_marker" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_large_marker_uid76_collision" type="mesh" mesh="mesh_large_marker" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="shelf_group_4" pos="1.1000 -1.1800 0.0000">
+      <body name="shelf_group_4_back_panel" pos="0.0000 0.0000 0.8250">
+        <geom name="shelf_group_4_back_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0025 0.9300 0.8250" material="shelf_mat"/>
+      </body>
+      <body name="shelf_group_4_shelf_level_0" pos="0.0000 0.0000 0.0500">
+        <geom name="shelf_group_4_shelf_L0_neg_body" pos="-0.2025 0.0000 0.0000" type="box" size="0.2000 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_4_shelf_L0_neg_face" pos="-0.4015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_4_shelf_L0_pos_body" pos="0.2025 0.0000 0.0000" type="box" size="0.2000 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_4_shelf_L0_pos_face" pos="0.4015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_4_L0_face_neg" pos="-0.4525 0.0000 0.0500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_4_L0_face_pos" pos="0.4525 0.0000 0.0500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_4_shelf_level_1" pos="0.0000 0.0000 0.4500">
+        <geom name="shelf_group_4_shelf_L1_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_4_shelf_L1_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_4_shelf_L1_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_4_shelf_L1_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_4_L1_face_neg" pos="-0.3525 0.0000 0.4500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_4_L1_face_pos" pos="0.3525 0.0000 0.4500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_4_shelf_level_2" pos="0.0000 0.0000 0.8500">
+        <geom name="shelf_group_4_shelf_L2_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_4_shelf_L2_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_4_shelf_L2_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_4_shelf_L2_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_4_L2_face_neg" pos="-0.3525 0.0000 0.8500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_4_L2_face_pos" pos="0.3525 0.0000 0.8500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_4_shelf_level_3" pos="0.0000 0.0000 1.2500">
+        <geom name="shelf_group_4_shelf_L3_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_4_shelf_L3_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_4_shelf_L3_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_4_shelf_L3_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_4_L3_face_neg" pos="-0.3525 0.0000 1.2500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_4_L3_face_pos" pos="0.3525 0.0000 1.2500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <body name="shelf_group_4_shelf_level_4" pos="0.0000 0.0000 1.6500">
+        <geom name="shelf_group_4_shelf_L4_neg_body" pos="-0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_4_shelf_L4_neg_face" pos="-0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+        <geom name="shelf_group_4_shelf_L4_pos_body" pos="0.1525 0.0000 0.0000" type="box" size="0.1500 0.9300 0.0100" material="shelf_side_black"/>
+        <geom name="shelf_group_4_shelf_L4_pos_face" pos="0.3015 0.0000 0.0000" type="box" size="0.0020 0.9300 0.0100" material="shelf_side_red"/>
+      </body>
+      <site name="shelf_group_4_L4_face_neg" pos="-0.3525 0.0000 1.6500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+      <site name="shelf_group_4_L4_face_pos" pos="0.3525 0.0000 1.6500" size="0.03" rgba="0 0 0 0" type="sphere"/>
+    </body>
+    <body name="product_pitcher_base_uid77" pos="0.9387 -1.9178 0.2100">
+      <freejoint name="product_pitcher_base_uid77_joint"/>
+      <geom name="product_pitcher_base_uid77_visual" type="mesh" mesh="mesh_pitcher_base" material="mat_pitcher_base" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_pitcher_base_uid77_collision" type="mesh" mesh="mesh_pitcher_base" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_mug_uid78" pos="1.0072 -1.1832 0.2100">
+      <freejoint name="product_mug_uid78_joint"/>
+      <geom name="product_mug_uid78_visual" type="mesh" mesh="mesh_mug" material="mat_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_mug_uid78_collision" type="mesh" mesh="mesh_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_coffee_mug_uid79" pos="0.8929 -0.4334 0.2100">
+      <freejoint name="product_coffee_mug_uid79_joint"/>
+      <geom name="product_coffee_mug_uid79_visual" type="mesh" mesh="mesh_coffee_mug" material="mat_coffee_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_coffee_mug_uid79_collision" type="mesh" mesh="mesh_coffee_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_large_marker_uid80" pos="1.2103 -1.9235 0.2100">
+      <freejoint name="product_large_marker_uid80_joint"/>
+      <geom name="product_large_marker_uid80_visual" type="mesh" mesh="mesh_large_marker" material="mat_large_marker" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_large_marker_uid80_collision" type="mesh" mesh="mesh_large_marker" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_porcelain_bowl_uid81" pos="1.3880 -1.1749 0.2100">
+      <freejoint name="product_porcelain_bowl_uid81_joint"/>
+      <geom name="product_porcelain_bowl_uid81_visual" type="mesh" mesh="mesh_porcelain_bowl" material="mat_porcelain_bowl" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_porcelain_bowl_uid81_collision" type="mesh" mesh="mesh_porcelain_bowl" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_plastic_bowl_uid82" pos="1.4203 -0.4440 0.2100">
+      <freejoint name="product_plastic_bowl_uid82_joint"/>
+      <geom name="product_plastic_bowl_uid82_visual" type="mesh" mesh="mesh_plastic_bowl" material="mat_plastic_bowl" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_plastic_bowl_uid82_collision" type="mesh" mesh="mesh_plastic_bowl" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_mug_uid83" pos="0.9922 -1.8974 0.6100">
+      <freejoint name="product_mug_uid83_joint"/>
+      <geom name="product_mug_uid83_visual" type="mesh" mesh="mesh_mug" material="mat_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_mug_uid83_collision" type="mesh" mesh="mesh_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_coffee_mug_uid84" pos="0.9572 -0.4604 0.6100">
+      <freejoint name="product_coffee_mug_uid84_joint"/>
+      <geom name="product_coffee_mug_uid84_visual" type="mesh" mesh="mesh_coffee_mug" material="mat_coffee_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_coffee_mug_uid84_collision" type="mesh" mesh="mesh_coffee_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_porcelain_bowl_uid85" pos="1.2231 -1.9124 0.6100">
+      <freejoint name="product_porcelain_bowl_uid85_joint"/>
+      <geom name="product_porcelain_bowl_uid85_visual" type="mesh" mesh="mesh_porcelain_bowl" material="mat_porcelain_bowl" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_porcelain_bowl_uid85_collision" type="mesh" mesh="mesh_porcelain_bowl" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_plastic_bowl_uid86" pos="1.1982 -0.4496 0.6100">
+      <freejoint name="product_plastic_bowl_uid86_joint"/>
+      <geom name="product_plastic_bowl_uid86_visual" type="mesh" mesh="mesh_plastic_bowl" material="mat_plastic_bowl" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_plastic_bowl_uid86_collision" type="mesh" mesh="mesh_plastic_bowl" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_coffee_mug_uid87" pos="0.8860 -1.9226 1.0100">
+      <freejoint name="product_coffee_mug_uid87_joint"/>
+      <geom name="product_coffee_mug_uid87_visual" type="mesh" mesh="mesh_coffee_mug" material="mat_coffee_mug" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_coffee_mug_uid87_collision" type="mesh" mesh="mesh_coffee_mug" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_milk_frother_uid88" pos="0.8799 -1.1897 1.0100">
+      <freejoint name="product_milk_frother_uid88_joint"/>
+      <geom name="product_milk_frother_uid88_visual" type="mesh" mesh="mesh_milk_frother" material="mat_milk_frother" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_milk_frother_uid88_collision" type="mesh" mesh="mesh_milk_frother" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_elderberry_syrup_uid89" pos="0.9934 -0.4313 1.0100">
+      <freejoint name="product_elderberry_syrup_uid89_joint"/>
+      <geom name="product_elderberry_syrup_uid89_visual" type="mesh" mesh="mesh_elderberry_syrup" material="mat_elderberry_syrup" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_elderberry_syrup_uid89_collision" type="mesh" mesh="mesh_elderberry_syrup" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_plastic_bowl_uid90" pos="1.2814 -1.9210 1.0100">
+      <freejoint name="product_plastic_bowl_uid90_joint"/>
+      <geom name="product_plastic_bowl_uid90_visual" type="mesh" mesh="mesh_plastic_bowl" material="mat_plastic_bowl" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_plastic_bowl_uid90_collision" type="mesh" mesh="mesh_plastic_bowl" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_cracker_box_uid91" pos="1.2666 -0.4656 1.0100">
+      <freejoint name="product_cracker_box_uid91_joint"/>
+      <geom name="product_cracker_box_uid91_visual" type="mesh" mesh="mesh_cracker_box" material="mat_cracker_box" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_cracker_box_uid91_collision" type="mesh" mesh="mesh_cracker_box" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_milk_frother_uid92" pos="0.9560 -1.9208 1.4100">
+      <freejoint name="product_milk_frother_uid92_joint"/>
+      <geom name="product_milk_frother_uid92_visual" type="mesh" mesh="mesh_milk_frother" material="mat_milk_frother" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_milk_frother_uid92_collision" type="mesh" mesh="mesh_milk_frother" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_elderberry_syrup_uid93" pos="0.9101 -1.1618 1.4100">
+      <freejoint name="product_elderberry_syrup_uid93_joint"/>
+      <geom name="product_elderberry_syrup_uid93_visual" type="mesh" mesh="mesh_elderberry_syrup" material="mat_elderberry_syrup" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_elderberry_syrup_uid93_collision" type="mesh" mesh="mesh_elderberry_syrup" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_brisk_tea_uid94" pos="0.9314 -0.4353 1.4100">
+      <freejoint name="product_brisk_tea_uid94_joint"/>
+      <geom name="product_brisk_tea_uid94_visual" type="mesh" mesh="mesh_brisk_tea" material="mat_brisk_tea" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_brisk_tea_uid94_collision" type="mesh" mesh="mesh_brisk_tea" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_cracker_box_uid95" pos="1.2259 -1.9009 1.4100">
+      <freejoint name="product_cracker_box_uid95_joint"/>
+      <geom name="product_cracker_box_uid95_visual" type="mesh" mesh="mesh_cracker_box" material="mat_cracker_box" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_cracker_box_uid95_collision" type="mesh" mesh="mesh_cracker_box" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_sugar_box_uid96" pos="1.2457 -0.4370 1.4100">
+      <freejoint name="product_sugar_box_uid96_joint"/>
+      <geom name="product_sugar_box_uid96_visual" type="mesh" mesh="mesh_sugar_box" material="mat_sugar_box" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_sugar_box_uid96_collision" type="mesh" mesh="mesh_sugar_box" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_elderberry_syrup_uid97" pos="0.9932 -1.9228 1.8100">
+      <freejoint name="product_elderberry_syrup_uid97_joint"/>
+      <geom name="product_elderberry_syrup_uid97_visual" type="mesh" mesh="mesh_elderberry_syrup" material="mat_elderberry_syrup" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_elderberry_syrup_uid97_collision" type="mesh" mesh="mesh_elderberry_syrup" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_brisk_tea_uid98" pos="1.0145 -1.1684 1.8100">
+      <freejoint name="product_brisk_tea_uid98_joint"/>
+      <geom name="product_brisk_tea_uid98_visual" type="mesh" mesh="mesh_brisk_tea" material="mat_brisk_tea" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_brisk_tea_uid98_collision" type="mesh" mesh="mesh_brisk_tea" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_bleach_cleanser_uid99" pos="0.9720 -0.4593 1.8100">
+      <freejoint name="product_bleach_cleanser_uid99_joint"/>
+      <geom name="product_bleach_cleanser_uid99_visual" type="mesh" mesh="mesh_bleach_cleanser" material="mat_bleach_cleanser" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_bleach_cleanser_uid99_collision" type="mesh" mesh="mesh_bleach_cleanser" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_sugar_box_uid100" pos="1.3116 -1.9231 1.8100">
+      <freejoint name="product_sugar_box_uid100_joint"/>
+      <geom name="product_sugar_box_uid100_visual" type="mesh" mesh="mesh_sugar_box" material="mat_sugar_box" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_sugar_box_uid100_collision" type="mesh" mesh="mesh_sugar_box" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="product_tomato_soup_can_uid101" pos="1.2182 -0.4433 1.8100">
+      <freejoint name="product_tomato_soup_can_uid101_joint"/>
+      <geom name="product_tomato_soup_can_uid101_visual" type="mesh" mesh="mesh_tomato_soup_can" material="mat_tomato_soup_can" contype="0" conaffinity="0" group="2"/>
+      <geom name="product_tomato_soup_can_uid101_collision" type="mesh" mesh="mesh_tomato_soup_can" contype="1" conaffinity="1" rgba="0 0 0 0" group="3"/>
+    </body>
+    <body name="counter_top_left" pos="-2.4000 3.6000 0.3750">
+      <geom name="counter_top_left_top" pos="0.0000 0.0000 0.3750" type="box" size="0.6000 0.4000 0.0150" material="counter_top_mat"/>
+      <body name="counter_top_left_leg_0" pos="-0.5700 -0.3700 0.0000">
+        <geom name="counter_top_left_leg_0_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+      <body name="counter_top_left_leg_1" pos="-0.5700 0.3700 0.0000">
+        <geom name="counter_top_left_leg_1_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+      <body name="counter_top_left_leg_2" pos="0.5700 -0.3700 0.0000">
+        <geom name="counter_top_left_leg_2_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+      <body name="counter_top_left_leg_3" pos="0.5700 0.3700 0.0000">
+        <geom name="counter_top_left_leg_3_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+    </body>
+    <body name="receipt_counter_top_left" pos="-2.5492 3.7936 0.7670">
+      <geom name="receipt_counter_top_left_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0750 0.0500 0.0010" material="receipt_mat"/>
+    </body>
+    <body name="counter_top_right" pos="2.4000 3.6000 0.3750">
+      <geom name="counter_top_right_top" pos="0.0000 0.0000 0.3750" type="box" size="0.6000 0.4000 0.0150" material="counter_top_mat"/>
+      <body name="counter_top_right_leg_0" pos="-0.5700 -0.3700 0.0000">
+        <geom name="counter_top_right_leg_0_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+      <body name="counter_top_right_leg_1" pos="-0.5700 0.3700 0.0000">
+        <geom name="counter_top_right_leg_1_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+      <body name="counter_top_right_leg_2" pos="0.5700 -0.3700 0.0000">
+        <geom name="counter_top_right_leg_2_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+      <body name="counter_top_right_leg_3" pos="0.5700 0.3700 0.0000">
+        <geom name="counter_top_right_leg_3_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+    </body>
+    <body name="receipt_counter_top_right" pos="2.5073 3.5609 0.7670">
+      <geom name="receipt_counter_top_right_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0750 0.0500 0.0010" material="receipt_mat"/>
+    </body>
+    <body name="counter_bottom_left" pos="-2.4000 -3.6000 0.3750">
+      <geom name="counter_bottom_left_top" pos="0.0000 0.0000 0.3750" type="box" size="0.6000 0.4000 0.0150" material="counter_top_mat"/>
+      <body name="counter_bottom_left_leg_0" pos="-0.5700 -0.3700 0.0000">
+        <geom name="counter_bottom_left_leg_0_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+      <body name="counter_bottom_left_leg_1" pos="-0.5700 0.3700 0.0000">
+        <geom name="counter_bottom_left_leg_1_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+      <body name="counter_bottom_left_leg_2" pos="0.5700 -0.3700 0.0000">
+        <geom name="counter_bottom_left_leg_2_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+      <body name="counter_bottom_left_leg_3" pos="0.5700 0.3700 0.0000">
+        <geom name="counter_bottom_left_leg_3_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+    </body>
+    <body name="receipt_counter_bottom_left" pos="-2.6615 -3.6225 0.7670">
+      <geom name="receipt_counter_bottom_left_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0750 0.0500 0.0010" material="receipt_mat"/>
+    </body>
+    <body name="counter_bottom_right" pos="2.4000 -3.6000 0.3750">
+      <geom name="counter_bottom_right_top" pos="0.0000 0.0000 0.3750" type="box" size="0.6000 0.4000 0.0150" material="counter_top_mat"/>
+      <body name="counter_bottom_right_leg_0" pos="-0.5700 -0.3700 0.0000">
+        <geom name="counter_bottom_right_leg_0_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+      <body name="counter_bottom_right_leg_1" pos="-0.5700 0.3700 0.0000">
+        <geom name="counter_bottom_right_leg_1_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+      <body name="counter_bottom_right_leg_2" pos="0.5700 -0.3700 0.0000">
+        <geom name="counter_bottom_right_leg_2_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+      <body name="counter_bottom_right_leg_3" pos="0.5700 0.3700 0.0000">
+        <geom name="counter_bottom_right_leg_3_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0200 0.0200 0.3750" material="counter_mat"/>
+      </body>
+    </body>
+    <body name="receipt_counter_bottom_right" pos="2.2243 -3.6710 0.7670">
+      <geom name="receipt_counter_bottom_right_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0750 0.0500 0.0010" material="receipt_mat"/>
+    </body>
+    <body name="basket_counter_top_left" pos="-2.7500 3.8500 0.8700">
+      <geom name="basket_counter_top_left_bottom" pos="0.0000 0.0000 -0.1010" type="box" size="0.1650 0.1100 0.0040" material="basket_mat"/>
+      <geom name="basket_counter_top_left_front_geom" pos="0.0000 0.1060 0.0000" type="box" size="0.1650 0.0040 0.1050" material="basket_mat"/>
+      <geom name="basket_counter_top_left_back_geom" pos="0.0000 -0.1060 0.0000" type="box" size="0.1650 0.0040 0.1050" material="basket_mat"/>
+      <geom name="basket_counter_top_left_left_geom" pos="-0.1610 0.0000 0.0000" type="box" size="0.0040 0.1100 0.1050" material="basket_mat"/>
+      <geom name="basket_counter_top_left_right_geom" pos="0.1610 0.0000 0.0000" type="box" size="0.0040 0.1100 0.1050" material="basket_mat"/>
+      <body name="basket_counter_top_left_handle_-1" pos="-0.1350 0.0000 0.1350">
+        <geom name="basket_counter_top_left_handle_-1_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0030 0.0030 0.0300" material="basket_mat"/>
+      </body>
+      <body name="basket_counter_top_left_handle_1" pos="0.1350 0.0000 0.1350">
+        <geom name="basket_counter_top_left_handle_1_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0030 0.0030 0.0300" material="basket_mat"/>
+      </body>
+      <body name="basket_counter_top_left_handle_bar" pos="0.0000 0.0000 0.1650">
+        <geom name="basket_counter_top_left_handle_bar_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.1350 0.0030 0.0030" material="basket_mat"/>
+      </body>
+    </body>
+    <body name="basket_counter_top_right" pos="2.7500 3.3500 0.8700">
+      <geom name="basket_counter_top_right_bottom" pos="0.0000 0.0000 -0.1010" type="box" size="0.1650 0.1100 0.0040" material="basket_mat"/>
+      <geom name="basket_counter_top_right_front_geom" pos="0.0000 0.1060 0.0000" type="box" size="0.1650 0.0040 0.1050" material="basket_mat"/>
+      <geom name="basket_counter_top_right_back_geom" pos="0.0000 -0.1060 0.0000" type="box" size="0.1650 0.0040 0.1050" material="basket_mat"/>
+      <geom name="basket_counter_top_right_left_geom" pos="-0.1610 0.0000 0.0000" type="box" size="0.0040 0.1100 0.1050" material="basket_mat"/>
+      <geom name="basket_counter_top_right_right_geom" pos="0.1610 0.0000 0.0000" type="box" size="0.0040 0.1100 0.1050" material="basket_mat"/>
+      <body name="basket_counter_top_right_handle_-1" pos="-0.1350 0.0000 0.1350">
+        <geom name="basket_counter_top_right_handle_-1_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0030 0.0030 0.0300" material="basket_mat"/>
+      </body>
+      <body name="basket_counter_top_right_handle_1" pos="0.1350 0.0000 0.1350">
+        <geom name="basket_counter_top_right_handle_1_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0030 0.0030 0.0300" material="basket_mat"/>
+      </body>
+      <body name="basket_counter_top_right_handle_bar" pos="0.0000 0.0000 0.1650">
+        <geom name="basket_counter_top_right_handle_bar_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.1350 0.0030 0.0030" material="basket_mat"/>
+      </body>
+    </body>
+    <body name="basket_counter_bottom_left" pos="-2.0500 -3.3500 0.8700">
+      <geom name="basket_counter_bottom_left_bottom" pos="0.0000 0.0000 -0.1010" type="box" size="0.1650 0.1100 0.0040" material="basket_mat"/>
+      <geom name="basket_counter_bottom_left_front_geom" pos="0.0000 0.1060 0.0000" type="box" size="0.1650 0.0040 0.1050" material="basket_mat"/>
+      <geom name="basket_counter_bottom_left_back_geom" pos="0.0000 -0.1060 0.0000" type="box" size="0.1650 0.0040 0.1050" material="basket_mat"/>
+      <geom name="basket_counter_bottom_left_left_geom" pos="-0.1610 0.0000 0.0000" type="box" size="0.0040 0.1100 0.1050" material="basket_mat"/>
+      <geom name="basket_counter_bottom_left_right_geom" pos="0.1610 0.0000 0.0000" type="box" size="0.0040 0.1100 0.1050" material="basket_mat"/>
+      <body name="basket_counter_bottom_left_handle_-1" pos="-0.1350 0.0000 0.1350">
+        <geom name="basket_counter_bottom_left_handle_-1_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0030 0.0030 0.0300" material="basket_mat"/>
+      </body>
+      <body name="basket_counter_bottom_left_handle_1" pos="0.1350 0.0000 0.1350">
+        <geom name="basket_counter_bottom_left_handle_1_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0030 0.0030 0.0300" material="basket_mat"/>
+      </body>
+      <body name="basket_counter_bottom_left_handle_bar" pos="0.0000 0.0000 0.1650">
+        <geom name="basket_counter_bottom_left_handle_bar_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.1350 0.0030 0.0030" material="basket_mat"/>
+      </body>
+    </body>
+    <body name="basket_counter_bottom_right" pos="2.0500 -3.8500 0.8700">
+      <geom name="basket_counter_bottom_right_bottom" pos="0.0000 0.0000 -0.1010" type="box" size="0.1650 0.1100 0.0040" material="basket_mat"/>
+      <geom name="basket_counter_bottom_right_front_geom" pos="0.0000 0.1060 0.0000" type="box" size="0.1650 0.0040 0.1050" material="basket_mat"/>
+      <geom name="basket_counter_bottom_right_back_geom" pos="0.0000 -0.1060 0.0000" type="box" size="0.1650 0.0040 0.1050" material="basket_mat"/>
+      <geom name="basket_counter_bottom_right_left_geom" pos="-0.1610 0.0000 0.0000" type="box" size="0.0040 0.1100 0.1050" material="basket_mat"/>
+      <geom name="basket_counter_bottom_right_right_geom" pos="0.1610 0.0000 0.0000" type="box" size="0.0040 0.1100 0.1050" material="basket_mat"/>
+      <body name="basket_counter_bottom_right_handle_-1" pos="-0.1350 0.0000 0.1350">
+        <geom name="basket_counter_bottom_right_handle_-1_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0030 0.0030 0.0300" material="basket_mat"/>
+      </body>
+      <body name="basket_counter_bottom_right_handle_1" pos="0.1350 0.0000 0.1350">
+        <geom name="basket_counter_bottom_right_handle_1_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.0030 0.0030 0.0300" material="basket_mat"/>
+      </body>
+      <body name="basket_counter_bottom_right_handle_bar" pos="0.0000 0.0000 0.1650">
+        <geom name="basket_counter_bottom_right_handle_bar_geom" pos="0.0000 0.0000 0.0000" type="box" size="0.1350 0.0030 0.0030" material="basket_mat"/>
+      </body>
+    </body>
+    <camera name="top_view" pos="0 0 6" quat="0.7071 0.7071 0 0" fovy="60"/>
+    <camera name="aisle_view" pos="0 0 1.5" quat="0.5 0.5 0.5 0.5" fovy="75"/>
+    <camera name="shelf_close" pos="1.5 2 1.2" xyaxes="-0.8 0 0 0 0 0.8" fovy="60"/>
+    <camera name="overview_angle" pos="3 3 3" xyaxes="-0.5 0.5 0 -0.25 -0.25 0.5" fovy="60"/>
+  </worldbody>
+</mujoco>
