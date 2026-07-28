@@ -4,8 +4,8 @@
 
 运行此脚本生成 shelf_inventory.db
 
-新 Slot ID 格式: {shelf_id}-{face}-{level}-{y_cm}-{z_offset_cm}
-    一个 slot = 一个商品实例, y_cm 和 z_offset_cm 精确到厘米
+Slot ID 格式: {shelf_id}-{face}-{level}-{y_cm}
+    一个 slot = 一个商品实例, y_cm 精确到厘米
 """
 
 import os
@@ -178,7 +178,7 @@ def init_database(db_path: str):
 
     # 3. 填充商品库存
     #    策略: 在货架长度范围内随机放置商品, 间距约 10-15cm
-    #    一个 slot = 一个商品实例, y_cm 和 z_offset_cm 精确到厘米
+    #    一个 slot = 一个商品实例, y_cm 精确到厘米；商品高度决定中心高度
     print("填充商品库存...")
 
     # 层 -> 品类映射
@@ -203,9 +203,9 @@ def init_database(db_path: str):
                 while y_pos < shelf_length_cm - 10:
                     if np.random.random() > 0.5:
                         sku = str(np.random.choice(candidate_skus))
-                        z_offset = float(np.random.randint(2, 11))  # 2-10cm 随机偏移
+                        height_cm = float(np.random.randint(4, 21))  # 4-20cm 随机商品高度
                         db.set_slot(sid, face=face, level=level,
-                                    y_cm=float(y_pos), z_offset_cm=z_offset, sku=sku)
+                                    y_cm=float(y_pos), sku=sku, height_cm=height_cm)
                         total_items += 1
                     y_pos += np.random.randint(10, 21)  # 10-20cm 间距
 

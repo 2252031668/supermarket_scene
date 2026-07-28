@@ -35,8 +35,10 @@ export type Slot = {
   face: number
   level: number
   y_cm: number
-  z_offset_cm: number
   sku: string
+  width_cm: number | null
+  height_cm: number | null
+  image_dir: string
   world_x: number
   world_y: number
   world_z: number

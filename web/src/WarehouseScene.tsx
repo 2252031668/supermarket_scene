@@ -1,6 +1,6 @@
-import { Html, OrbitControls, OrthographicCamera, PerspectiveCamera } from '@react-three/drei'
+import { Html, OrbitControls, OrthographicCamera, PerspectiveCamera, useTexture } from '@react-three/drei'
 import { Canvas, ThreeEvent } from '@react-three/fiber'
-import { useMemo } from 'react'
+import { Suspense, useEffect, useMemo } from 'react'
 import { Color, MOUSE } from 'three'
 import type { Selection, Shelf, ShelfType, Slot, Sku } from './types'
 import { skuColor } from './skuColors'
@@ -14,6 +14,8 @@ type SceneProps = {
   camera: 'top' | 'perspective'
   onSelect: (selection: Selection) => void
 }
+
+const EMPTY_TEXTURE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
 
 function ShelfModel({ shelf, type, selected, onClick }: {
   shelf: Shelf
@@ -95,19 +97,35 @@ function ItemBox({ slot, color, selected, onClick }: {
   onClick: () => void
 }) {
   const displayColor = selected ? '#fff1b8' : color
+  const imageUrl = slot.image_dir ? `/api/item-images/${encodeURIComponent(slot.slot_id_str)}/0.png` : EMPTY_TEXTURE
+  const texture = useTexture(imageUrl)
+  useEffect(() => {
+    if (!slot.image_dir) return
+    // X-facing BoxGeometry UVs use Z as U and Y as V. Rotate so the photo's
+    // horizontal axis follows product width (local Y), and its vertical axis Z.
+    texture.center.set(0.5, 0.5)
+    texture.rotation = slot.face === 1 ? Math.PI / 2 : -Math.PI / 2
+    texture.needsUpdate = true
+  }, [slot.face, slot.image_dir, texture])
   const click = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation()
     onClick()
   }
   return (
     <mesh
-      position={[slot.world_x, slot.world_y, slot.world_z + 0.07]}
+      position={[slot.world_x, slot.world_y, slot.world_z]}
       rotation={[0, 0, slot.yaw]}
       castShadow
       onClick={click}
     >
-      <boxGeometry args={[0.13, 0.075, 0.14]} />
-      <meshStandardMaterial color={displayColor} emissive={selected ? new Color('#9c6e12') : new Color('#000000')} emissiveIntensity={selected ? 0.26 : 0} roughness={0.48} />
+      <boxGeometry args={[0.03, Math.max(0.04, (slot.width_cm ?? 7.5) / 100), Math.max(0.04, (slot.height_cm ?? 14) / 100)]} />
+      {/* BoxGeometry material 0 is +X and material 1 is -X. Only the outward shelf face carries 0.png. */}
+      <meshStandardMaterial attach="material-0" color={slot.image_dir && slot.face === 1 ? '#ffffff' : displayColor} map={slot.image_dir && slot.face === 1 ? texture : undefined} emissive={selected ? new Color('#9c6e12') : new Color('#000000')} emissiveIntensity={selected ? 0.26 : 0} roughness={0.48} />
+      <meshStandardMaterial attach="material-1" color={slot.image_dir && slot.face === 0 ? '#ffffff' : displayColor} map={slot.image_dir && slot.face === 0 ? texture : undefined} emissive={selected ? new Color('#9c6e12') : new Color('#000000')} emissiveIntensity={selected ? 0.26 : 0} roughness={0.48} />
+      <meshStandardMaterial attach="material-2" color={displayColor} emissive={selected ? new Color('#9c6e12') : new Color('#000000')} emissiveIntensity={selected ? 0.26 : 0} roughness={0.48} />
+      <meshStandardMaterial attach="material-3" color={displayColor} emissive={selected ? new Color('#9c6e12') : new Color('#000000')} emissiveIntensity={selected ? 0.26 : 0} roughness={0.48} />
+      <meshStandardMaterial attach="material-4" color={displayColor} emissive={selected ? new Color('#9c6e12') : new Color('#000000')} emissiveIntensity={selected ? 0.26 : 0} roughness={0.48} />
+      <meshStandardMaterial attach="material-5" color={displayColor} emissive={selected ? new Color('#9c6e12') : new Color('#000000')} emissiveIntensity={selected ? 0.26 : 0} roughness={0.48} />
     </mesh>
   )
 }
@@ -158,15 +176,15 @@ function SceneContent(props: SceneProps) {
           onClick={() => props.onSelect({ kind: 'shelf', shelfId: shelf.id })}
         />
       ))}
-      {props.slots.map((slot) => (
-        <ItemBox
-          key={slot.slot_id_str}
-          slot={slot}
-          color={colorBySku.get(slot.sku) ?? '#a9b5c1'}
-          selected={slot.slot_id_str === selectedSlotId}
-          onClick={() => props.onSelect({ kind: 'slot', slot })}
-        />
-      ))}
+      <Suspense fallback={null}>{props.slots.map((slot) => (
+          <ItemBox
+            key={slot.slot_id_str}
+            slot={slot}
+            color={colorBySku.get(slot.sku) ?? '#a9b5c1'}
+            selected={slot.slot_id_str === selectedSlotId}
+            onClick={() => props.onSelect({ kind: 'slot', slot })}
+          />
+      ))}</Suspense>
     </>
   )
 }

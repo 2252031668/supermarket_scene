@@ -518,37 +518,12 @@ def place_mesh_product(parent, model_name, pos, euler, unique_id):
     return body
 
 
-# 各 SKU 的近似半高 (米)，用于让商品底部贴紧层板表面
-# 半高 = 物品大致高度 / 2，来自 YCB 数据集常见尺寸
-SKU_HALF_HEIGHT = {
-    "cracker_box":       0.14,   # ~28cm 高
-    "sugar_box":         0.12,   # ~24cm
-    "tomato_soup_can":   0.05,   # ~10cm
-    "mustard_bottle":    0.10,   # ~20cm
-    "tuna_fish_can":     0.02,   # ~4cm
-    "potted_meat_can":   0.05,   # ~10cm
-    "banana":            0.02,   # ~4cm 厚
-    "pitcher_base":      0.13,   # ~26cm
-    "bleach_cleanser":   0.13,   # ~26cm
-    "mug":               0.05,   # ~10cm
-    "large_marker":      0.01,   # ~2cm
-    "coffee_mug":        0.06,   # ~12cm
-    "fruit_snacks_grape":0.06,   # ~12cm
-    "brisk_tea":         0.08,   # ~16cm (易拉罐)
-    "milk_frother":      0.10,   # ~20cm
-    "porcelain_bowl":    0.03,   # ~6cm
-    "plastic_bowl":      0.04,   # ~8cm
-    "elderberry_syrup":  0.09,   # ~18cm
-    "fruit_snacks_juicy":0.06,   # ~12cm
-}
-
-
 def place_products_from_database(worldbody, db: ShelfDatabase):
     """
     从数据库读取所有商品，生成 MuJoCo product body。
-    每个 slot = 一个商品实例，位置由 y_cm 和 z_offset_cm 精确确定。
+    每个 slot = 一个商品实例，数据库 world_* 字段就是商品几何中心。
 
-    - Z = 层板表面 + z_offset_cm/100 + 商品半高 (商品底部贴紧层板)
+    - Z = 层板表面 + height_cm / 2
     - Y = y_cm / 100 (相对于货架原点)
 
     返回: total_products
@@ -566,13 +541,7 @@ def place_products_from_database(worldbody, db: ShelfDatabase):
         world_z = slot["world_z"]
         shelf_id = slot["shelf_id"]
 
-        # 商品半高 (mesh原点在几何中心)
-        half_h = SKU_HALF_HEIGHT.get(sku, 0.08)
-        # world_z 已经是: 层板表面 + z_offset_cm/100
-        # 物品几何中心 = world_z + half_h + 安全间距(底部贴层板)
-        wz = world_z + half_h + 0.02
-
-        place_mesh_product(worldbody, sku, (world_x, world_y, wz), "0 0 0", global_pid)
+        place_mesh_product(worldbody, sku, (world_x, world_y, world_z), "0 0 0", global_pid)
         global_pid += 1
 
     return global_pid

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Box, Boxes, ChevronDown, ChevronRight, Eye, Layers3, LoaderCircle, Map, PackagePlus, Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react'
+import { Box, Boxes, ChevronDown, ChevronRight, Eye, Layers3, LoaderCircle, Map, PackagePlus, Pencil, Plus, RefreshCw, Save, Trash2, Upload, X } from 'lucide-react'
 import { WarehouseScene } from './WarehouseScene'
+import { ManualImportPage } from './ManualImportPage'
 import { skuColor } from './skuColors'
 import type { Selection, Shelf, Slot, WarehouseState } from './types'
 
@@ -9,9 +10,10 @@ const blankState: WarehouseState = {
   shelf_types: [], shelves: [], skus: [], slots: [],
 }
 
-type SlotDraft = Pick<Slot, 'shelf_id' | 'face' | 'level' | 'y_cm' | 'z_offset_cm' | 'sku'>
+type SlotDraft = Pick<Slot, 'shelf_id' | 'face' | 'level' | 'y_cm' | 'sku' | 'width_cm' | 'height_cm' | 'image_dir'>
 type SkuDraft = Pick<WarehouseState['skus'][number], 'sku' | 'category' | 'mesh_file' | 'tex_file'>
 type CleanupScope = 'level' | 'face' | 'all' | 'shelf'
+type SlotWorldPosition = Pick<Slot, 'slot_id_str' | 'shelf_id' | 'face' | 'level' | 'y_cm' | 'sku' | 'width_cm' | 'height_cm' | 'image_dir' | 'world_x' | 'world_y' | 'world_z'> & { frame: string }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -38,6 +40,8 @@ export function App() {
   const [shelfDraft, setShelfDraft] = useState<Shelf | null>(null)
   const [skuDraft, setSkuDraft] = useState<SkuDraft | null>(null)
   const [cleanupShelfId, setCleanupShelfId] = useState<number | null>(null)
+  const [slotWorldPosition, setSlotWorldPosition] = useState<SlotWorldPosition | null>(null)
+  const [manualImport, setManualImport] = useState(false)
 
   const selectedShelf = useMemo(() => {
     if (selection.kind === 'shelf') return state.shelves.find((shelf) => shelf.id === selection.shelfId)
@@ -45,11 +49,22 @@ export function App() {
     return undefined
   }, [selection, state.shelves])
 
-  const refresh = async () => {
+  const refresh = async (showNotice = false) => {
     setLoading(true)
     try {
       const next = await request<WarehouseState>('/api/state')
       setState(next)
+      setSelection((current) => {
+        if (current.kind === 'slot') {
+          const slot = next.slots.find((item) => item.slot_id_str === current.slot.slot_id_str)
+          return slot ? { kind: 'slot', slot } : { kind: 'none' }
+        }
+        if (current.kind === 'shelf') {
+          return next.shelves.some((shelf) => shelf.id === current.shelfId) ? current : { kind: 'none' }
+        }
+        return current
+      })
+      if (showNotice) setNotice('数据已从数据库刷新')
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '无法读取数据库')
     } finally {
@@ -62,10 +77,21 @@ export function App() {
     if (selection.kind === 'shelf') setShelfDraft(state.shelves.find((shelf) => shelf.id === selection.shelfId) ?? null)
     else setShelfDraft(null)
     if (selection.kind === 'slot') {
-      const { shelf_id, face, level, y_cm, z_offset_cm, sku } = selection.slot
-      setSlotDraft({ shelf_id, face, level, y_cm, z_offset_cm, sku })
+      const { shelf_id, face, level, y_cm, sku, width_cm, height_cm, image_dir } = selection.slot
+      setSlotDraft({ shelf_id, face, level, y_cm, sku, width_cm, height_cm, image_dir })
     }
   }, [selection, state.shelves])
+  useEffect(() => {
+    if (selection.kind !== 'slot') {
+      setSlotWorldPosition(null)
+      return
+    }
+    let active = true
+    void request<{ slot: SlotWorldPosition }>(`/api/slots/${encodeURIComponent(selection.slot.slot_id_str)}/world-position`)
+      .then((result) => { if (active) setSlotWorldPosition(result.slot) })
+      .catch(() => { if (active) setSlotWorldPosition(null) })
+    return () => { active = false }
+  }, [selection])
 
   const commit = async (path: string, method: string, payload?: unknown) => {
     setSaving(true)
@@ -88,7 +114,7 @@ export function App() {
   const beginNewSlot = () => {
     if (!selectedShelf || state.skus.length === 0) return
     setSelection({ kind: 'none' })
-    setSlotDraft({ shelf_id: selectedShelf.id, face: 0, level: 0, y_cm: 20, z_offset_cm: 8, sku: state.skus[0].sku })
+    setSlotDraft({ shelf_id: selectedShelf.id, face: 0, level: 0, y_cm: 20, sku: state.skus[0].sku, width_cm: null, height_cm: 16, image_dir: '' })
   }
 
   const saveSlot = async () => {
@@ -164,6 +190,8 @@ export function App() {
     if (result?.id) setSelection({ kind: 'shelf', shelfId: result.id })
   }
 
+  if (manualImport) return <ManualImportPage state={state} onBack={() => setManualImport(false)} onImported={(next) => setState(next)} />
+
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -173,7 +201,8 @@ export function App() {
             <button className={camera === 'perspective' ? 'active' : ''} aria-pressed={camera === 'perspective'} onClick={() => setCamera('perspective')}><Eye size={16} />3D 视图</button>
             <button className={camera === 'top' ? 'active' : ''} aria-pressed={camera === 'top'} onClick={() => setCamera('top')}><Map size={16} />平面图</button>
           </div>
-          <button className="icon-button" title="重新读取数据库" onClick={() => void refresh()}><RefreshCw size={18} className={loading ? 'spin' : ''} /></button>
+          <button className="refresh-button" title="重新读取数据库" onClick={() => void refresh(true)}><RefreshCw size={16} className={loading ? 'spin' : ''} /><span>刷新数据</span></button>
+          <button className="manual-entry-button" title="通过照片人工批量录入商品" onClick={() => setManualImport(true)}><Upload size={16} /><span>人工批量录入</span></button>
         </div>
       </header>
 
@@ -197,7 +226,7 @@ export function App() {
           ) : skuDraft ? (
             <SkuEditor draft={skuDraft} onChange={setSkuDraft} onSave={() => void saveSku()} onClose={() => setSkuDraft(null)} />
           ) : selection.kind === 'slot' && slotDraft ? (
-            <SlotEditor draft={slotDraft} skus={state.skus} onChange={setSlotDraft} onSave={() => void saveSlot()} onDelete={() => void deleteSlot()} onClose={() => setSelection({ kind: 'shelf', shelfId: slotDraft.shelf_id })} />
+            <SlotEditor draft={slotDraft} skus={state.skus} worldPosition={slotWorldPosition} onChange={setSlotDraft} onSave={() => void saveSlot()} onDelete={() => void deleteSlot()} onClose={() => setSelection({ kind: 'shelf', shelfId: slotDraft.shelf_id })} />
           ) : selection.kind === 'shelf' && shelfDraft ? (
             <ShelfEditor draft={shelfDraft} types={state.shelf_types} itemCount={state.slots.filter((slot) => slot.shelf_id === shelfDraft.id).length} onChange={setShelfDraft} onSave={() => void saveShelf()} onCleanup={() => setCleanupShelfId(shelfDraft.id)} onAddSlot={beginNewSlot} />
           ) : slotDraft ? (
@@ -287,12 +316,13 @@ function CleanupEditor({ shelf, shelfType, slots, onConfirm, onClose }: { shelf:
   </>
 }
 
-function SlotEditor({ draft, skus, onChange, onSave, onDelete, onClose, isNew = false }: { draft: SlotDraft; skus: WarehouseState['skus']; onChange: (value: SlotDraft) => void; onSave: () => void; onDelete: () => void; onClose: () => void; isNew?: boolean }) {
+function SlotEditor({ draft, skus, worldPosition, onChange, onSave, onDelete, onClose, isNew = false }: { draft: SlotDraft; skus: WarehouseState['skus']; worldPosition?: SlotWorldPosition | null; onChange: (value: SlotDraft) => void; onSave: () => void; onDelete: () => void; onClose: () => void; isNew?: boolean }) {
   const set = <K extends keyof SlotDraft>(key: K, value: SlotDraft[K]) => onChange({ ...draft, [key]: value })
   return <>
-    <PanelHeader icon={<Box size={19} />} title={isNew ? '新增商品货位' : draft.sku} eyebrow={isNew ? 'NEW INVENTORY SLOT' : `SLOT · ${draft.shelf_id}-${draft.face}-${draft.level}-${draft.y_cm}-${draft.z_offset_cm}`} action={<button className="icon-button" title="返回货架" onClick={onClose}><X size={17} /></button>} />
-    <div className="field-grid"><label className="field wide"><span>SKU</span><select value={draft.sku} onChange={(event) => set('sku', event.target.value)}>{skus.map((sku) => <option key={sku.sku} value={sku.sku}>{sku.sku}</option>)}</select></label><Field label="货架 ID" value={draft.shelf_id} onChange={(value) => set('shelf_id', number(value))} /><label className="field"><span>货架面</span><select value={draft.face} onChange={(event) => set('face', Number(event.target.value))}><option value={0}>-X 侧 (0)</option><option value={1}>+X 侧 (1)</option></select></label><Field label="层号" value={draft.level} onChange={(value) => set('level', number(value))} /><Field label="Y 位置 (cm)" value={draft.y_cm} onChange={(value) => set('y_cm', number(value))} /><Field label="高度偏移 (cm)" value={draft.z_offset_cm} onChange={(value) => set('z_offset_cm', number(value))} /></div>
-    <p className="helper-text">Y 坐标决定同一层内的货位。保存至已存在的位置会更新该货位商品。</p>
+    <PanelHeader icon={<Box size={19} />} title={isNew ? '新增商品货位' : draft.sku} eyebrow={isNew ? 'NEW INVENTORY SLOT' : `SLOT · ${draft.shelf_id}-${draft.face}-${draft.level}-${draft.y_cm}`} action={<button className="icon-button" title="返回货架" onClick={onClose}><X size={17} /></button>} />
+    <div className="field-grid"><label className="field wide"><span>SKU</span><select value={draft.sku} onChange={(event) => set('sku', event.target.value)}>{skus.map((sku) => <option key={sku.sku} value={sku.sku}>{sku.sku}</option>)}</select></label><Field label="货架 ID" value={draft.shelf_id} onChange={(value) => set('shelf_id', number(value))} /><label className="field"><span>货架面</span><select value={draft.face} onChange={(event) => set('face', Number(event.target.value))}><option value={0}>-X 侧 (0)</option><option value={1}>+X 侧 (1)</option></select></label><Field label="层号" value={draft.level} onChange={(value) => set('level', number(value))} /><Field label="Y 中心 (cm)" value={draft.y_cm} onChange={(value) => set('y_cm', number(value))} /><Field label="宽度 (cm，可选)" value={draft.width_cm ?? ''} onChange={(value) => set('width_cm', value === '' ? null : number(value))} /><Field label="高度 (cm，可选)" value={draft.height_cm ?? ''} onChange={(value) => set('height_cm', value === '' ? null : number(value))} /></div>
+    <p className="helper-text">商品世界坐标指向几何中心；中心高度由本层层板表面加上商品高度的一半计算。</p>
+    {!isNew && <div className="world-position"><span>世界坐标（{worldPosition?.frame ?? 'map'}，m）</span>{worldPosition ? <div><strong>X {worldPosition.world_x.toFixed(3)}</strong><strong>Y {worldPosition.world_y.toFixed(3)}</strong><strong>Z {worldPosition.world_z.toFixed(3)}</strong></div> : <small>正在读取坐标</small>}</div>}
     <div className="panel-actions"><button className="primary-button" onClick={onSave}><Save size={16} />{isNew ? '创建货位' : '保存货位'}</button>{!isNew && <button className="danger-icon" title="删除商品货位" onClick={onDelete}><Trash2 size={17} /></button>}</div>
   </>
 }

@@ -16,6 +16,9 @@ web/node_modules/
 web/dist/
 web/.vite/
 
+# Locally captured inventory-instance photos
+data/item_images/
+
 # Editor and operating-system files
 .DS_Store
 .idea/
