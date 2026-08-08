@@ -1,0 +1,22 @@
+# Copy to config.local.yaml and replace each placeholder with the local credential.
+# config.local.yaml is ignored by Git and is the preferred source at runtime.
+api_keys:
+  ark: ""
+  siliconflow: ""
+  dashscope: ""
+
+inspection:
+  min_current_coverage: 0.05
+  analysis_center_ratio: 0.8
+  lab_distance_threshold: 12.0
+  slot_change_ratio_threshold: 0.15
+  dino_confidence_threshold: 0.72
+  ambiguity_margin: 0.05
+  vlm_fallback: false
+  vlm_top_k: 4
+  save_debug: true
+
+sku_query:
+  max_boxes: 1
+  dino_fallback: false
+  dino_confidence_threshold: 0.72

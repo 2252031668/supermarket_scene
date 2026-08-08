@@ -1,4 +1,21 @@
+import json
+import base64
+import tempfile
+import threading
 import unittest
+import urllib.error
+import urllib.request
+from http.server import ThreadingHTTPServer
+from io import BytesIO
+from pathlib import Path
+from unittest.mock import patch
+from xml.etree import ElementTree as ET
+
+from PIL import Image
+import api_server
+import calibration_manager
+from mujoco import generate_scene_from_database
+from vision import config as vision_config
 
 from shelf_database import (
     DEFAULT_BACK_THICK,
@@ -77,6 +94,823 @@ class FixedSlotTests(unittest.TestCase):
         self.assertEqual(slot.status, "缺货")
         self.assertEqual(world_rows[0]["slot_id"], slot_id)
         self.assertIsNone(world_rows[0]["actual_sku"])
+
+    def test_scene_uses_actual_sku_and_skips_shortages(self):
+        self.db.create_slot(self.shelf_id, 0, 2, 20, "sprite", "sprite")
+        self.db.create_slot(self.shelf_id, 0, 2, 40, "sprite", None)
+        self.db.create_slot(self.shelf_id, 0, 2, 60, "sprite", "cola")
+        worldbody = ET.Element("worldbody")
+
+        with patch.object(generate_scene_from_database, "place_mesh_product") as place:
+            count = generate_scene_from_database.place_products_from_database(
+                worldbody, self.db
+            )
+
+        self.assertEqual(count, 2)
+        self.assertEqual([call.args[1] for call in place.call_args_list], ["sprite", "cola"])
+
+    def test_batch_import_keeps_empty_and_misplaced_states(self):
+        slot_ids = self.db.import_slots_batch(
+            [],
+            [
+                {
+                    "shelf_id": self.shelf_id,
+                    "face": 0,
+                    "level": 2,
+                    "y_cm": 30,
+                    "expected_sku": "sprite",
+                    "actual_sku": None,
+                },
+                {
+                    "shelf_id": self.shelf_id,
+                    "face": 0,
+                    "level": 2,
+                    "y_cm": 50,
+                    "expected_sku": "sprite",
+                    "actual_sku": "cola",
+                },
+            ],
+        )
+
+        self.assertEqual(slot_ids, ["1-0-2-30", "1-0-2-50"])
+        self.assertEqual(self.db.get_slot_by_id(slot_ids[0]).status, "缺货")
+        self.assertEqual(self.db.get_slot_by_id(slot_ids[1]).status, "摆放错误")
+
+    def test_inspection_decision_without_vlm_turns_low_confidence_into_shortage(self):
+        from vision.cv_restock_position import classify_candidate
+
+        result = classify_candidate(
+            expected_sku="tea",
+            top_sku="cola",
+            score=0.60,
+            second_score=0.51,
+            confidence_threshold=0.72,
+            ambiguity_margin=0.05,
+            vlm_fallback=False,
+            vlm_result=None,
+        )
+
+        self.assertIsNone(result["actual_sku"])
+        self.assertEqual(result["reason"], "low_confidence")
+
+    def test_inspection_decision_uses_ark_result_when_fallback_is_enabled(self):
+        from vision.cv_restock_position import classify_candidate
+
+        result = classify_candidate(
+            expected_sku="tea",
+            top_sku="cola",
+            score=0.60,
+            second_score=0.51,
+            confidence_threshold=0.72,
+            ambiguity_margin=0.05,
+            vlm_fallback=True,
+            vlm_result={"kind": "sku", "sku": "cola"},
+        )
+
+        self.assertEqual(result["actual_sku"], "cola")
+        self.assertEqual(result["source"], "ark")
+
+    def test_failed_ark_result_becomes_shortage(self):
+        from vision.cv_restock_position import classify_candidate
+
+        result = classify_candidate(
+            expected_sku="tea",
+            top_sku="cola",
+            score=0.60,
+            second_score=0.51,
+            confidence_threshold=0.72,
+            ambiguity_margin=0.05,
+            vlm_fallback=True,
+            vlm_result={"kind": "unresolved"},
+        )
+
+        self.assertIsNone(result["actual_sku"])
+
+    def test_high_confidence_dino_result_keeps_detected_sku(self):
+        from vision.cv_restock_position import classify_candidate
+
+        result = classify_candidate(
+            expected_sku="tea",
+            top_sku="cola",
+            score=0.88,
+            second_score=0.42,
+            confidence_threshold=0.72,
+            ambiguity_margin=0.05,
+            vlm_fallback=False,
+            vlm_result=None,
+        )
+
+        self.assertEqual(result["actual_sku"], "cola")
+        self.assertEqual(result["status"], "摆放错误")
+        self.assertEqual(result["source"], "dino")
+
+    def test_ambiguous_high_score_uses_top_match_without_vlm(self):
+        from vision.cv_restock_position import classify_candidate
+
+        result = classify_candidate(
+            expected_sku="tea",
+            top_sku="cola",
+            score=0.88,
+            second_score=0.84,
+            confidence_threshold=0.72,
+            ambiguity_margin=0.05,
+            vlm_fallback=False,
+            vlm_result=None,
+        )
+
+        self.assertEqual(result["actual_sku"], "cola")
+        self.assertEqual(result["status"], "摆放错误")
+        self.assertEqual(result["reason"], "dino_match")
+
+    def test_ambiguous_high_score_uses_ark_when_fallback_is_enabled(self):
+        from vision.cv_restock_position import classify_candidate
+
+        result = classify_candidate(
+            expected_sku="tea",
+            top_sku="cola",
+            score=0.88,
+            second_score=0.84,
+            confidence_threshold=0.72,
+            ambiguity_margin=0.05,
+            vlm_fallback=True,
+            vlm_result={"kind": "sku", "sku": "sprite"},
+        )
+
+        self.assertEqual(result["actual_sku"], "sprite")
+        self.assertEqual(result["source"], "ark")
+
+    def test_high_confidence_expected_sku_ignores_ambiguity(self):
+        from vision.cv_restock_position import classify_candidate
+
+        result = classify_candidate(
+            expected_sku="tea",
+            top_sku="tea",
+            score=0.88,
+            second_score=0.84,
+            confidence_threshold=0.72,
+            ambiguity_margin=0.05,
+            vlm_fallback=False,
+            vlm_result=None,
+        )
+
+        self.assertEqual(result["actual_sku"], "tea")
+        self.assertEqual(result["status"], "正常")
+        self.assertEqual(result["reason"], "dino_expected_match")
+
+    def test_dino_box_filter_keeps_highest_scores_within_limit(self):
+        from vision.ark_grounding import BoundingBox
+        from vision.vlm_sku_query import select_dino_boxes
+
+        boxes = [
+            BoundingBox(index=1, label="sprite", normalized=(0, 0, 100, 100), pixels=(0, 0, 10, 10)),
+            BoundingBox(index=2, label="sprite", normalized=(100, 0, 200, 100), pixels=(10, 0, 20, 10)),
+            BoundingBox(index=3, label="sprite", normalized=(200, 0, 300, 100), pixels=(20, 0, 30, 10)),
+        ]
+
+        matches = select_dino_boxes(boxes, [0.82, 0.91, 0.79], confidence_threshold=0.8, max_results=2)
+
+        self.assertEqual([box.index for box in matches], [2, 1])
+
+    def test_dino_runtime_is_loaded_once_and_reused(self):
+        from vision import dino
+
+        previous = dino._DINO_RUNTIME
+        dino._DINO_RUNTIME = None
+        runtime = (object(), object(), "cpu")
+        try:
+            with patch.object(dino, "load_dino_runtime", return_value=runtime) as loader:
+                self.assertIs(dino.get_dino_runtime(), runtime)
+                self.assertIs(dino.preload_dino(), runtime)
+                loader.assert_called_once()
+        finally:
+            dino._DINO_RUNTIME = previous
+
+    def test_image_stitch_builds_a_mosaic_from_overlapping_photos(self):
+        from PIL import ImageDraw
+        from vision.image_stitch import run_image_stitch
+
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            shelf = Image.new("RGB", (420, 180), "white")
+            draw = ImageDraw.Draw(shelf)
+            for x in range(20, 401, 38):
+                for y in range(20, 161, 35):
+                    draw.rectangle((x, y, x + 13, y + 13), fill=((x * 3) % 255, (y * 7) % 255, (x + y) % 255))
+                    draw.line((x, y, x + 13, y + 13), fill="black", width=2)
+            left_path, right_path = directory / "left.png", directory / "right.png"
+            shelf.crop((0, 0, 270, 180)).save(left_path)
+            shelf.crop((150, 0, 420, 180)).save(right_path)
+
+            report = run_image_stitch([left_path, right_path], directory / "output")
+
+            self.assertTrue((directory / "output" / "stitched.png").is_file())
+            self.assertGreater(report["width"], 350)
+            self.assertGreaterEqual(report["height"], 180)
+            self.assertLess(report["height"], 190)
+
+    def test_image_stitch_writes_graphcut_seam_debug_image(self):
+        from PIL import ImageDraw
+        from vision.image_stitch import run_image_stitch
+
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            shelf = Image.new("RGB", (420, 180), "white")
+            draw = ImageDraw.Draw(shelf)
+            for x in range(20, 401, 38):
+                for y in range(20, 161, 35):
+                    draw.rectangle((x, y, x + 13, y + 13), fill=((x * 3) % 255, (y * 7) % 255, (x + y) % 255))
+                    draw.line((x, y, x + 13, y + 13), fill="black", width=2)
+            left_path, right_path = directory / "left.png", directory / "right.png"
+            shelf.crop((0, 0, 270, 180)).save(left_path)
+            shelf.crop((150, 0, 420, 180)).save(right_path)
+
+            report = run_image_stitch([left_path, right_path], directory / "output")
+
+            self.assertEqual(report["rendering"]["seam_method"], "graphcut_colorgrad")
+            self.assertEqual(report["rendering"]["blend_bands"], 3)
+            self.assertTrue((directory / "output" / "seams.png").is_file())
+
+    def test_image_stitch_graphcut_assigns_both_sources_in_a_full_overlap(self):
+        import numpy as np
+        from vision.image_stitch import run_image_stitch
+
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            left_path, right_path = directory / "left.png", directory / "right.png"
+            Image.new("RGB", (120, 80), (220, 30, 30)).save(left_path)
+            Image.new("RGB", (120, 80), (30, 30, 220)).save(right_path)
+            metrics = {"matches": 30, "inliers": 24, "inlier_ratio": 0.8}
+            with patch("vision.image_stitch.pair_homography", return_value=(np.eye(3), metrics)):
+                report = run_image_stitch([left_path, right_path], directory / "output")
+            self.assertEqual(report["rendering"]["seam_overlap_pixels"], [0])
+
+    def test_image_stitch_uses_the_largest_unordered_match_group(self):
+        import numpy as np
+        from vision.reference_photo_align import AlignmentError
+        from vision.image_stitch import run_image_stitch
+
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            paths = []
+            for index in range(4):
+                path = directory / f"input-{index}.png"
+                Image.new("RGB", (40, 20), (index + 1, 0, 0)).save(path)
+                paths.append(path)
+            metrics = {"matches": 30, "inliers": 24, "inlier_ratio": 0.8}
+
+            def pair(source, destination):
+                source_index = int(source[0, 0, 2]) - 1
+                destination_index = int(destination[0, 0, 2]) - 1
+                if (source_index, destination_index) in {(1, 0), (3, 1)}:
+                    return np.eye(3), metrics
+                raise AlignmentError("no shared shelf area")
+
+            with patch(
+                "vision.image_stitch.pair_homography",
+                side_effect=pair,
+            ):
+                report = run_image_stitch(paths, directory / "output")
+
+            self.assertEqual(report["used_indices"], [0, 1, 3])
+            self.assertEqual(
+                report["pairs"],
+                [
+                    {"source_index": 1, "destination_index": 0, **metrics},
+                    {"source_index": 3, "destination_index": 1, **metrics},
+                ],
+            )
+            self.assertEqual(
+                report["skipped"],
+                [{"index": 2, "reason": "No reliable alignment with selected photo group"}],
+            )
+
+    def test_image_stitch_uses_selected_main_plane(self):
+        import numpy as np
+        from vision.reference_photo_align import AlignmentError
+        from vision.image_stitch import run_image_stitch
+
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            paths = []
+            for index in range(5):
+                path = directory / f"input-{index}.png"
+                Image.new("RGB", (40, 20), (index + 1, 0, 0)).save(path)
+                paths.append(path)
+            metrics = {"matches": 30, "inliers": 24, "inlier_ratio": 0.8}
+
+            def pair(source, destination):
+                source_index = int(source[0, 0, 2]) - 1
+                destination_index = int(destination[0, 0, 2]) - 1
+                if (source_index, destination_index) in {(1, 0), (3, 1), (4, 2)}:
+                    return np.eye(3), metrics
+                raise AlignmentError("no shared shelf area")
+
+            with patch("vision.image_stitch.pair_homography", side_effect=pair):
+                report = run_image_stitch(paths, directory / "output", main_index=2)
+
+            self.assertEqual(report["main_index"], 2)
+            self.assertEqual(report["used_indices"], [2, 4])
+            self.assertEqual([item["index"] for item in report["skipped"]], [0, 1, 3])
+
+    def test_lab_difference_ignores_uniform_lighting_shift(self):
+        import cv2
+        import numpy as np
+        from vision.cv_restock_position import compute_difference_mask
+
+        baseline = np.full((40, 40, 3), (50, 80, 110), dtype=np.uint8)
+        current = cv2.convertScaleAbs(baseline, alpha=1.08, beta=12)
+
+        _, mask = compute_difference_mask(baseline, current, 12.0)
+
+        self.assertEqual(cv2.countNonZero(mask), 0)
+
+    def test_lab_difference_marks_local_packaging_change(self):
+        import cv2
+        import numpy as np
+        from vision.cv_restock_position import compute_difference_mask
+
+        baseline = np.full((80, 80, 3), (50, 80, 110), dtype=np.uint8)
+        current = baseline.copy()
+        cv2.rectangle(current, (20, 20), (59, 59), (220, 30, 20), -1)
+
+        _, mask = compute_difference_mask(baseline, current, 12.0)
+
+        self.assertGreater(cv2.countNonZero(mask[20:60, 20:60]), 1200)
+        self.assertEqual(cv2.countNonZero(mask[:15, :15]), 0)
+
+    def test_inspection_report_uses_stable_slot_ids(self):
+        import cv2
+        import numpy as np
+        from vision import cv_restock_position
+
+        with tempfile.TemporaryDirectory() as temporary:
+            temp_path = Path(temporary)
+            current_path = temp_path / "current.png"
+            current = np.zeros((100, 100, 3), dtype=np.uint8)
+            cv2.rectangle(current, (0, 10), (9, 39), (255, 255, 255), -1)
+            cv2.rectangle(current, (10, 10), (39, 39), (255, 255, 255), -1)
+            cv2.imwrite(str(current_path), current)
+            baseline = np.zeros((100, 100, 3), dtype=np.uint8)
+            calibration = {
+                "slots": [
+                    {
+                        "slot_id": "1-0-2-20",
+                        "expected_sku": "tea",
+                        "bbox": {"x": 0, "y": 10, "width": 10, "height": 30},
+                    },
+                    {
+                        "slot_id": "1-0-2-43",
+                        "expected_sku": "tea",
+                        "bbox": {"x": 10, "y": 10, "width": 30, "height": 30},
+                    },
+                    {
+                        "slot_id": "1-0-2-65",
+                        "expected_sku": "cola",
+                        "bbox": {"x": 60, "y": 10, "width": 30, "height": 30},
+                    },
+                ]
+            }
+            best_match = {
+                "shelf_id": 1,
+                "face": 0,
+                "baseline_image": baseline,
+                "baseline_path": str(current_path),
+                "homography": np.eye(3),
+                "inliers": 20,
+                "inlier_ratio": 0.8,
+                "coverage": 0.5,
+                "calibration_data": calibration,
+            }
+            config = {
+                "analysis_center_ratio": 0.8,
+                "dino_confidence_threshold": 0.72,
+                "ambiguity_margin": 0.05,
+                "vlm_fallback": False,
+                "vlm_top_k": 4,
+                "save_debug": False,
+            }
+            with patch.object(cv_restock_position, "find_best_match", return_value=best_match), \
+                    patch.object(cv_restock_position, "rank_slot_crop", return_value=[("cola", 0.88)]):
+                report = cv_restock_position.run_inspection(
+                    current_path, config, temp_path / "run"
+                )
+
+            self.assertEqual(report["run_id"], "run")
+            self.assertEqual(report["shelf_id"], 1)
+            self.assertEqual(report["face"], 0)
+            self.assertEqual(len(report["slots"]), 1)
+            self.assertEqual(report["analysis"]["skipped_edge_slots"], 1)
+            self.assertEqual(report["analysis"]["roi"], {"x": 10, "y": 10, "width": 80, "height": 80})
+            changed = report["slots"][0]
+            self.assertEqual(changed["slot_id"], "1-0-2-43")
+            self.assertEqual(changed["actual_sku"], "cola")
+            self.assertEqual(changed["status"], "摆放错误")
+            self.assertTrue(changed["selected"])
+            self.assertGreaterEqual(changed["difference_ratio"], 0.15)
+            self.assertTrue((temp_path / "run" / "result.json").is_file())
+            self.assertEqual(
+                report["artifacts"],
+                {"result": "result.json", "result_overlay": "result_overlay.png"},
+            )
+            self.assertTrue((temp_path / "run" / "result_overlay.png").is_file())
+
+
+class CalibrationProjectionTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.calibration_dir = Path(self.temp_dir.name)
+        self.path = self.calibration_dir / "1.json"
+        self.original = {
+            "schema_version": 2,
+            "shelf_id": 1,
+            "shelf_name": "Shelf",
+            "faces": {
+                "0": {
+                    "image_file": "face.png",
+                    "image_hash": "sha256:test",
+                    "layers": {"2": [{"x": 1, "y": 2}]},
+                    "slots": [
+                        {
+                            "slot_id": "1-0-2-43",
+                            "expected_sku": "sprite",
+                            "actual_sku": "sprite",
+                            "bbox": {"x": 10, "y": 20, "width": 30, "height": 40},
+                        }
+                    ],
+                }
+            },
+        }
+        self.path.write_text(
+            json.dumps(self.original, ensure_ascii=False), encoding="utf-8"
+        )
+        self.calibration_patch = patch.object(
+            calibration_manager, "CALIBRATION_DIR", self.temp_dir.name
+        )
+        self.calibration_patch.start()
+
+    def tearDown(self):
+        self.calibration_patch.stop()
+        self.temp_dir.cleanup()
+
+    def test_slot_projection_preserves_calibration_and_bbox(self):
+        calibration_manager.sync_shelf_slots(
+            1,
+            [
+                {
+                    "slot_id": "1-0-2-43",
+                    "face": 0,
+                    "expected_sku": "sprite",
+                    "actual_sku": None,
+                }
+            ],
+        )
+
+        data = json.loads(self.path.read_text(encoding="utf-8"))
+        face = data["faces"]["0"]
+        self.assertEqual(face["layers"], self.original["faces"]["0"]["layers"])
+        self.assertEqual(face["slots"][0]["bbox"], self.original["faces"]["0"]["slots"][0]["bbox"])
+        self.assertIsNone(face["slots"][0]["actual_sku"])
+
+    def test_failed_replace_leaves_original_json_unchanged(self):
+        original_bytes = self.path.read_bytes()
+        with patch("calibration_manager.os.replace", side_effect=OSError("blocked")):
+            with self.assertRaises(OSError):
+                calibration_manager.sync_shelf_slots(1, [])
+
+        self.assertEqual(self.path.read_bytes(), original_bytes)
+        self.assertEqual(
+            [path.name for path in self.calibration_dir.iterdir()], ["1.json"]
+        )
+
+    def test_save_calibration_merges_existing_layers_and_slots(self):
+        calibration_manager.save_calibration(
+            shelf_id=1,
+            shelf_name="Shelf",
+            face=0,
+            layers={"3": [{"x": 3, "y": 4}]},
+            slots=[
+                {
+                    "slot_id": "1-0-2-43",
+                    "expected_sku": "sprite",
+                    "actual_sku": None,
+                }
+            ],
+        )
+
+        data = json.loads(self.path.read_text(encoding="utf-8"))
+        face = data["faces"]["0"]
+        self.assertIn("2", face["layers"])
+        self.assertIn("3", face["layers"])
+        self.assertEqual(face["slots"][0]["bbox"], {"x": 10, "y": 20, "width": 30, "height": 40})
+
+
+class FixedSlotApiTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.db_path = str(Path(self.temp_dir.name) / "inventory.db")
+        with ShelfDatabase(self.db_path) as db:
+            type_id = db.add_shelf_type(
+                "test",
+                DEFAULT_SHELF_LENGTH,
+                DEFAULT_SHELF_WIDTH,
+                DEFAULT_SHELF_HEIGHT,
+                5,
+                DEFAULT_BOTTOM_CLEARANCE,
+                DEFAULT_LEVEL_SPACING,
+                DEFAULT_PANEL_THICK,
+                DEFAULT_BACK_THICK,
+                DEFAULT_SHELF_DEPTH_NORMAL,
+                DEFAULT_SHELF_DEPTH_BOTTOM,
+            )
+            db.add_shelf_group("Shelf", shelf_type_id=type_id)
+            db.register_skus_batch([{"sku": "cola"}, {"sku": "sprite"}])
+
+        self.db_patch = patch.object(api_server, "DB_PATH", self.db_path)
+        self.calibration_patch = patch.object(
+            calibration_manager, "CALIBRATION_DIR", self.temp_dir.name
+        )
+        self.vision_output_patch = patch.object(
+            api_server, "VISION_OUTPUT_DIR", Path(self.temp_dir.name) / "runs", create=True
+        )
+        self.item_images_patch = patch.object(
+            api_server, "ITEM_IMAGES_DIR", str(Path(self.temp_dir.name) / "item_images")
+        )
+        self.sku_query_output_patch = patch.object(
+            api_server, "SKU_QUERY_OUTPUT_DIR", Path(self.temp_dir.name) / "sku-query-runs", create=True
+        )
+        self.image_stitch_output_patch = patch.object(
+            api_server, "IMAGE_STITCH_OUTPUT_DIR", Path(self.temp_dir.name) / "image-stitch-runs", create=True
+        )
+        self.config_path_patch = patch.object(
+            vision_config, "LOCAL_CONFIG_PATH", Path(self.temp_dir.name) / "config.local.yaml"
+        )
+        self.db_patch.start()
+        self.calibration_patch.start()
+        self.vision_output_patch.start()
+        self.item_images_patch.start()
+        self.sku_query_output_patch.start()
+        self.image_stitch_output_patch.start()
+        self.config_path_patch.start()
+        vision_config.local_config.cache_clear()
+        vision_config.local_api_keys.cache_clear()
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.ApiHandler)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base_url = f"http://127.0.0.1:{self.server.server_port}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join()
+        vision_config.local_config.cache_clear()
+        vision_config.local_api_keys.cache_clear()
+        self.config_path_patch.stop()
+        self.vision_output_patch.stop()
+        self.item_images_patch.stop()
+        self.sku_query_output_patch.stop()
+        self.image_stitch_output_patch.stop()
+        self.calibration_patch.stop()
+        self.db_patch.stop()
+        self.temp_dir.cleanup()
+
+    def request(self, path, method="GET", payload=None):
+        body = None if payload is None else json.dumps(payload).encode()
+        request = urllib.request.Request(
+            self.base_url + path,
+            data=body,
+            method=method,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request) as response:
+            return response.status, json.load(response)
+
+    def test_fixed_slot_api_lifecycle(self):
+        status, created = self.request(
+            "/api/slots",
+            "POST",
+            {
+                "shelf_id": 1,
+                "face": 0,
+                "level": 2,
+                "y_cm": 43,
+                "expected_sku": "sprite",
+                "actual_sku": "sprite",
+            },
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(created["slot"]["slot_id"], "1-0-2-43")
+        self.assertEqual(created["slot"]["status"], "正常")
+
+        _, changed = self.request(
+            "/api/slots/1-0-2-43", "PUT", {"actual_sku": "cola"}
+        )
+        self.assertEqual(changed["slot"]["status"], "摆放错误")
+        _, misplaced = self.request("/api/misplacements")
+        self.assertEqual([item["slot_id"] for item in misplaced["slots"]], ["1-0-2-43"])
+
+        _, taken = self.request("/api/slots/1-0-2-43/take", "POST", {})
+        self.assertEqual(taken["slot"]["status"], "缺货")
+        _, shortages = self.request("/api/shortages")
+        self.assertEqual([item["slot_id"] for item in shortages["slots"]], ["1-0-2-43"])
+
+        _, restocked = self.request("/api/slots/1-0-2-43/restock", "POST", {})
+        self.assertEqual(restocked["slot"]["status"], "正常")
+        _, world = self.request("/api/slots/1-0-2-43/world-position")
+        self.assertEqual(world["slot"]["slot_id"], "1-0-2-43")
+
+    def test_vision_run_is_read_only_until_selected_result_is_applied(self):
+        self.request(
+            "/api/slots",
+            "POST",
+            {
+                "shelf_id": 1,
+                "face": 0,
+                "level": 2,
+                "y_cm": 43,
+                "expected_sku": "sprite",
+                "actual_sku": "sprite",
+            },
+        )
+        _, config = self.request("/api/vision/config")
+        self.assertNotIn("api_keys", config)
+        _, saved_config = self.request(
+            "/api/vision/config", "PUT", {
+                "min_current_coverage": 0.03,
+                "vlm_fallback": True,
+                "vlm_top_k": 6,
+            }
+        )
+        self.assertEqual(saved_config["inspection"]["min_current_coverage"], 0.03)
+        self.assertTrue(saved_config["inspection"]["vlm_fallback"])
+        self.assertEqual(saved_config["inspection"]["vlm_top_k"], 6)
+
+        report = {
+            "run_id": "test-run",
+            "shelf_id": 1,
+            "face": 0,
+            "slots": [
+                {
+                    "slot_id": "1-0-2-43",
+                    "expected_sku": "sprite",
+                    "actual_sku": None,
+                    "status": "缺货",
+                    "source": "dino",
+                    "confidence": 0.9,
+                    "reason": "dino_match",
+                    "selected": True,
+                }
+            ],
+            "artifacts": {"result": "result.json"},
+        }
+
+        def fake_run(_current_path, _config, output_dir):
+            output_dir.mkdir(parents=True)
+            result = {**report, "run_id": output_dir.name}
+            (output_dir / "result.json").write_text(
+                json.dumps(result, ensure_ascii=False), encoding="utf-8"
+            )
+            return result
+
+        image_bytes = BytesIO()
+        Image.new("RGB", (1, 1), "white").save(image_bytes, format="PNG")
+        image_data = "data:image/png;base64," + base64.b64encode(image_bytes.getvalue()).decode()
+        with patch.object(api_server, "run_inspection", side_effect=fake_run):
+            _, response = self.request(
+                "/api/vision/inspect", "POST", {"image_data": image_data}
+            )
+        run_id = response["report"]["run_id"]
+        self.assertTrue(run_id)
+        _, stored_report = self.request(f"/api/vision/runs/{run_id}/result")
+        self.assertEqual(stored_report["run_id"], run_id)
+        _, stored_report_artifact = self.request(
+            f"/api/vision/runs/{run_id}/artifact/result.json"
+        )
+        self.assertEqual(stored_report_artifact["run_id"], run_id)
+
+        with ShelfDatabase(self.db_path) as db:
+            self.assertEqual(db.get_slot_by_id("1-0-2-43").actual_sku, "sprite")
+
+        _, applied = self.request(
+            f"/api/vision/runs/{run_id}/apply",
+            "POST",
+            {"slot_ids": ["1-0-2-43"]},
+        )
+        self.assertEqual(applied["slots"][0]["status"], "缺货")
+        _, applied_report = self.request(f"/api/vision/runs/{run_id}/result")
+        self.assertFalse(applied_report["slots"][0]["selected"])
+        with ShelfDatabase(self.db_path) as db:
+            self.assertIsNone(db.get_slot_by_id("1-0-2-43").actual_sku)
+        calibration = json.loads((Path(self.temp_dir.name) / "1.json").read_text())
+        self.assertIsNone(calibration["faces"]["0"]["slots"][0]["actual_sku"])
+
+    def test_vision_runtime_error_returns_json(self):
+        image_bytes = BytesIO()
+        Image.new("RGB", (1, 1), "white").save(image_bytes, format="PNG")
+        image_data = "data:image/png;base64," + base64.b64encode(image_bytes.getvalue()).decode()
+
+        with patch.object(api_server, "run_inspection", side_effect=RuntimeError("No matching calibrated shelf face found")):
+            with self.assertRaises(urllib.error.HTTPError) as raised:
+                self.request("/api/vision/inspect", "POST", {"image_data": image_data})
+
+        self.assertEqual(raised.exception.code, 422)
+        self.assertEqual(json.load(raised.exception)["error"], "No matching calibrated shelf face found")
+
+    def test_sku_query_uses_slot_reference_without_changing_inventory(self):
+        _, config = self.request("/api/sku-query/config")
+        self.assertEqual(config["max_boxes"], 1)
+        _, saved_config = self.request(
+            "/api/sku-query/config",
+            "PUT",
+            {"max_boxes": 2, "dino_fallback": True, "dino_confidence_threshold": 0.81},
+        )
+        self.assertEqual(saved_config["sku_query"]["max_boxes"], 2)
+        self.assertTrue(saved_config["sku_query"]["dino_fallback"])
+
+        _, created = self.request(
+            "/api/slots",
+            "POST",
+            {
+                "shelf_id": 1,
+                "face": 0,
+                "level": 2,
+                "y_cm": 43,
+                "expected_sku": "sprite",
+                "actual_sku": "sprite",
+            },
+        )
+        slot_id = created["slot"]["slot_id"]
+        reference_dir = Path(api_server.ITEM_IMAGES_DIR) / slot_id
+        reference_dir.mkdir(parents=True)
+        Image.new("RGB", (2, 2), "green").save(reference_dir / "0.png")
+
+        image_bytes = BytesIO()
+        Image.new("RGB", (2, 2), "white").save(image_bytes, format="PNG")
+        image_data = "data:image/png;base64," + base64.b64encode(image_bytes.getvalue()).decode()
+
+        def fake_run(sku, target_path, shelf_path, provider, model, output_dir, **options):
+            self.assertEqual(sku, "sprite")
+            self.assertEqual(target_path, reference_dir / "0.png")
+            self.assertTrue(shelf_path.is_file())
+            self.assertEqual(provider, "ark")
+            self.assertEqual(model, "test-model")
+            self.assertEqual(options["max_boxes"], 2)
+            self.assertTrue(options["dino_fallback"])
+            self.assertEqual(options["dino_confidence_threshold"], 0.81)
+            output_dir.mkdir(parents=True)
+            return {
+                "run_id": output_dir.name,
+                "sku": sku,
+                "provider": provider,
+                "model": model,
+                "request_seconds": 1.2,
+                "total_seconds": 1.3,
+                "raw_response": "<bbox>1 2 3 4</bbox>",
+                "detected_boxes": [],
+                "artifacts": {"annotated_matches": "ark/matches.png"},
+            }
+
+        with patch.object(api_server, "run_vlm_sku_query", side_effect=fake_run, create=True):
+            status, response = self.request(
+                "/api/sku-query",
+                "POST",
+                {"image_data": image_data, "query": slot_id, "provider": "ark", "model": "test-model"},
+            )
+
+        self.assertEqual(status, 201)
+        self.assertEqual(response["report"]["reference_slot_id"], slot_id)
+        self.assertEqual(response["report"]["sku"], "sprite")
+        with ShelfDatabase(self.db_path) as db:
+            self.assertEqual(db.get_slot_by_id(slot_id).actual_sku, "sprite")
+
+    def test_image_stitch_returns_a_read_only_result(self):
+        image_bytes = BytesIO()
+        Image.new("RGB", (8, 6), "white").save(image_bytes, format="PNG")
+        image_data = "data:image/png;base64," + base64.b64encode(image_bytes.getvalue()).decode()
+
+        def fake_stitch(image_paths, output_dir, main_index):
+            self.assertEqual(len(image_paths), 2)
+            self.assertEqual(main_index, 1)
+            output_dir.mkdir(parents=True)
+            Image.new("RGB", (12, 6), "white").save(output_dir / "stitched.png")
+            return {
+                "run_id": output_dir.name,
+                "width": 12,
+                "height": 6,
+                "main_index": main_index,
+                "used_indices": [0, 1],
+                "skipped": [],
+                "artifacts": {"stitched": "stitched.png", "final_image": "stitched.png"},
+            }
+
+        with patch.object(api_server, "run_image_stitch", side_effect=fake_stitch, create=True):
+            status, response = self.request(
+                "/api/image-stitch", "POST", {"images": [image_data, image_data], "main_index": 1}
+            )
+
+        self.assertEqual(status, 201)
+        self.assertEqual(response["report"]["width"], 12)
+        self.assertEqual(response["report"]["main_index"], 1)
+        self.assertEqual(response["report"]["artifacts"]["final_image"], "stitched.png")
 
 
 if __name__ == "__main__":

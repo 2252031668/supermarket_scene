@@ -9,6 +9,13 @@ import numpy as np
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 
+from scene_geometry import (
+    DELIVERY_TABLE_HEIGHT as COUNTER_HEIGHT,
+    DELIVERY_TABLE_LENGTH as COUNTER_LENGTH,
+    DELIVERY_TABLE_TOP_THICKNESS as COUNTER_THICK,
+    DELIVERY_TABLE_WIDTH as COUNTER_WIDTH,
+)
+
 # ============================================================
 # 路径配置
 # ============================================================
@@ -41,12 +48,6 @@ SHELFS_PER_GROUP = 2
 # 货架组在 X 方向：双面各30cm + 背板 = 60.5cm 深（最下层40cm + 背板 + 40cm）
 GROUP_DEPTH = SHELF_DEPTH_BOTTOM * 2 + SHELF_BACK_THICK  # 0.805m 最深
 GROUP_Y_LEN = SHELF_UNIT_Y * SHELFS_PER_GROUP  # 1.86m 沿Y
-
-# 交付台/补货台
-COUNTER_LENGTH = 1.20  # 沿 X
-COUNTER_WIDTH = 0.80   # 沿 Y
-COUNTER_HEIGHT = 0.75
-COUNTER_THICK = 0.03
 
 # 购物篮
 BASKET_BOTTOM_LENGTH = 0.33

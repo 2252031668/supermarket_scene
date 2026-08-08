@@ -8,6 +8,7 @@ __pycache__/
 # Local configuration and logs
 .env
 .env.*
+vision/config.local.yaml
 *.log
 MUJOCO_LOG.TXT
 
@@ -16,8 +17,10 @@ web/node_modules/
 web/dist/
 web/.vite/
 
-# Locally captured inventory-instance photos
-data/item_images/
+# Local runtime photos and calibration projections
+data/
+vision/output/
+vision/models/
 
 # Editor and operating-system files
 .DS_Store

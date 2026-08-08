@@ -5,7 +5,8 @@
 与 generate_scene.py 的区别:
   - 货架位置从 shelf_groups 表读取（而非硬编码）
   - 商品摆放从 shelf_inventory 表读取（而非随机生成）
-  - 场景结构（地板、围墙、桌子等）保持不变
+  - 交付桌位置从 delivery_tables 表读取（而非硬编码）
+  - 地板、围墙等场景结构保持固定
 """
 
 import os
@@ -20,12 +21,19 @@ from shelf_database import (
     DEFAULT_SHELF_DEPTH_NORMAL, DEFAULT_SHELF_DEPTH_BOTTOM,
     DEFAULT_PANEL_THICK, DEFAULT_BACK_THICK,
 )
+from scene_geometry import (
+    DELIVERY_TABLE_HEIGHT as COUNTER_HEIGHT,
+    DELIVERY_TABLE_LENGTH as COUNTER_LENGTH,
+    DELIVERY_TABLE_TOP_THICKNESS as COUNTER_THICK,
+    DELIVERY_TABLE_WIDTH as COUNTER_WIDTH,
+)
 
 # ============================================================
 # 路径配置
 # ============================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SCANNED_DIR = os.path.join(BASE_DIR, "assets/scanned/models")
+MUJOCO_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(MUJOCO_DIR)
+SCANNED_DIR = os.path.join(MUJOCO_DIR, "assets/scanned/models")
 
 # ============================================================
 # 全局参数 (单位：米)
@@ -42,16 +50,6 @@ WALL_INNER_X = MAP_WIDTH / 2
 WALL_INNER_Y = MAP_LENGTH / 2
 WALL_CENTER_X = WALL_INNER_X + WALL_THICK / 2
 WALL_CENTER_Y = WALL_INNER_Y + WALL_THICK / 2
-
-# 交付台/补货台
-COUNTER_LENGTH = 1.20
-COUNTER_WIDTH = 0.80
-COUNTER_HEIGHT = 0.75
-COUNTER_THICK = 0.03
-COUNTER_TOP_LEFT_POS = (-2.4, 3.6, COUNTER_HEIGHT / 2)
-COUNTER_TOP_RIGHT_POS = (2.4, 3.6, COUNTER_HEIGHT / 2)
-COUNTER_BOTTOM_LEFT_POS = (-2.4, -3.6, COUNTER_HEIGHT / 2)
-COUNTER_BOTTOM_RIGHT_POS = (2.4, -3.6, COUNTER_HEIGHT / 2)
 
 # 起点区域
 START_ZONE_TOP_POS = (0, 3.6, 0.01)
@@ -320,20 +318,40 @@ def build_walls(worldbody):
         add_geom(body, f"{name}_geom", (0, 0, 0),
                  (sx, sy, sh), material="wall_mat")
 
-def build_counter(worldbody, name, pos):
-    counter = make_body(worldbody, name, pos=fmt_vec(pos))
+def build_counter(worldbody, name, world_x, world_y, yaw):
+    """Build a delivery table from its database local-origin pose."""
+    import math
+    counter = make_body(
+        worldbody,
+        name,
+        pos=fmt_vec((world_x, world_y, 0)),
+        euler=f"0 0 {math.degrees(yaw):.4f}",
+    )
     cl2 = COUNTER_LENGTH / 2
     cw2 = COUNTER_WIDTH / 2
     ch2 = COUNTER_HEIGHT / 2
     ct = COUNTER_THICK
-    add_geom(counter, f"{name}_top", (0, 0, ch2), (cl2, cw2, ct/2), material="counter_top_mat")
+    table_body = make_body(counter, f"{name}_body", pos=fmt_vec((cl2, cw2, ch2)))
+    add_geom(table_body, f"{name}_top", (0, 0, ch2), (cl2, cw2, ct/2), material="counter_top_mat")
     for i, (lx, ly) in enumerate([
         (-cl2+0.03, -cw2+0.03), (-cl2+0.03, cw2-0.03),
         (cl2-0.03, -cw2+0.03), (cl2-0.03, cw2-0.03),
     ]):
-        leg = make_body(counter, f"{name}_leg_{i}", pos=fmt_vec((lx, ly, 0)))
+        leg = make_body(table_body, f"{name}_leg_{i}", pos=fmt_vec((lx, ly, 0)))
         add_geom(leg, f"{name}_leg_{i}_geom", (0, 0, 0), (0.02, 0.02, ch2), material="counter_mat")
     return counter
+
+
+def place_receipt_on_counter(counter, counter_name):
+    """A static paper list; delivery goods themselves remain out of scope."""
+    receipt = make_body(
+        counter,
+        f"receipt_{counter_name}",
+        pos=fmt_vec((COUNTER_LENGTH / 2, COUNTER_WIDTH / 2,
+                     COUNTER_HEIGHT + COUNTER_THICK / 2 + RECEIPT_THICK / 2 + 0.001)),
+    )
+    add_geom(receipt, f"receipt_{counter_name}_geom", (0, 0, 0),
+             (RECEIPT_LENGTH / 2, RECEIPT_WIDTH / 2, RECEIPT_THICK / 2), material="receipt_mat")
 
 def place_receipt(worldbody, counter_pos, counter_name, ox=0, oy=0):
     rx = counter_pos[0] + ox
@@ -520,8 +538,7 @@ def place_mesh_product(parent, model_name, pos, euler, unique_id):
 
 def place_products_from_database(worldbody, db: ShelfDatabase):
     """
-    从数据库读取所有商品，生成 MuJoCo product body。
-    每个 slot = 一个商品实例，数据库 world_* 字段就是商品几何中心。
+    从数据库读取固定货位，为实际存在的商品生成 MuJoCo body。
 
     - Z = 层板表面 + height_cm / 2
     - Y = y_cm / 100 (相对于货架原点)
@@ -531,15 +548,13 @@ def place_products_from_database(worldbody, db: ShelfDatabase):
     all_slots = db.get_all_slots_world()
     global_pid = 0
 
-    # 缓存货架类型, 避免重复查询
-    shelf_type_cache = {}
-
     for slot in all_slots:
-        sku = slot["sku"]
+        sku = slot["actual_sku"]
+        if sku is None:
+            continue
         world_x = slot["world_x"]
         world_y = slot["world_y"]
         world_z = slot["world_z"]
-        shelf_id = slot["shelf_id"]
 
         place_mesh_product(worldbody, sku, (world_x, world_y, world_z), "0 0 0", global_pid)
         global_pid += 1
@@ -629,33 +644,14 @@ def generate_mjcf_from_db(db_path: str):
     # 从数据库读取商品并放置
     total_products = place_products_from_database(worldbody, db)
 
-    # 交付台/补货台
-    counters = [
-        ("counter_top_left", COUNTER_TOP_LEFT_POS),
-        ("counter_top_right", COUNTER_TOP_RIGHT_POS),
-        ("counter_bottom_left", COUNTER_BOTTOM_LEFT_POS),
-        ("counter_bottom_right", COUNTER_BOTTOM_RIGHT_POS),
-    ]
-    for name, pos in counters:
-        build_counter(worldbody, name, pos)
-        place_receipt(worldbody, pos, name,
-                      ox=np.random.uniform(-0.3, 0.3),
-                      oy=np.random.uniform(-0.2, 0.2))
-
-    counter_pos_map = {
-        "counter_top_left": COUNTER_TOP_LEFT_POS,
-        "counter_top_right": COUNTER_TOP_RIGHT_POS,
-        "counter_bottom_left": COUNTER_BOTTOM_LEFT_POS,
-        "counter_bottom_right": COUNTER_BOTTOM_RIGHT_POS,
-    }
-    basket_offsets = [
-        ("counter_top_left", -0.35, 0.25),
-        ("counter_top_right", 0.35, -0.25),
-        ("counter_bottom_left", 0.35, 0.25),
-        ("counter_bottom_right", -0.35, -0.25),
-    ]
-    for cname, ox, oy in basket_offsets:
-        place_basket_on_counter(worldbody, cname, counter_pos_map[cname], ox=ox, oy=oy)
+    # Delivery tables are independent database fixtures.  They have a paper
+    # list as a visual marker, but do not contain inventory at this stage.
+    delivery_tables = db.get_all_delivery_tables()
+    print(f"从数据库读取到 {len(delivery_tables)} 张交付桌")
+    for table in delivery_tables:
+        table_name = f"delivery_table_{table.id}"
+        counter = build_counter(worldbody, table_name, table.world_x, table.world_y, table.yaw)
+        place_receipt_on_counter(counter, table_name)
 
     # 相机
     ET.SubElement(worldbody, "camera", {
@@ -686,8 +682,8 @@ def prettify_xml(elem):
 
 
 if __name__ == "__main__":
-    db_path = os.path.join(BASE_DIR, "shelf_inventory.db")
-    output_path = os.path.join(BASE_DIR, "supermarket_scene_from_db.xml")
+    db_path = os.path.join(PROJECT_ROOT, "shelf_inventory.db")
+    output_path = os.path.join(MUJOCO_DIR, "supermarket_scene_from_db.xml")
 
     if not os.path.exists(db_path):
         print(f"❌ 数据库文件不存在: {db_path}")

@@ -14,7 +14,7 @@ world_x/world_y 是货架局部原点的 map 坐标，而非屏幕方位角。
 层: 0 到 (num_levels-1), 从下到上
 
 Slot ID 格式: {shelf_id}-{face}-{level}-{y_cm}
-    每个 slot 对应一个商品实例, y_cm 精确到厘米
+    每个 slot 对应一个固定货位, y_cm 精确到厘米
     例如: 1-1-2-9 = 1号货架, +X 侧, 第2层, 商品中心距原点Y轴9cm
 
 世界坐标转换:
@@ -27,9 +27,8 @@ Slot ID 格式: {shelf_id}-{face}-{level}-{y_cm}
 
 import sqlite3
 import math
-import os
 from typing import List, Dict, Optional, Tuple, Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 # ============================================================
@@ -93,6 +92,17 @@ class ShelfGroup:
 
 
 @dataclass
+class DeliveryTable:
+    """A named delivery-table pose; it deliberately has no inventory slots."""
+    id: int
+    name: str
+    world_x: float              # local min-X/min-Y footprint anchor in map
+    world_y: float
+    yaw: float = 0.0            # counter-clockwise around map +Z, in radians
+    created_at: str = ""
+
+
+@dataclass
 class SkuInfo:
     """商品SKU信息"""
     sku: str
@@ -103,16 +113,18 @@ class SkuInfo:
 
 @dataclass
 class ShelfSlot:
-    """货架上的一个商品槽位 (一个 slot = 一个商品实例)"""
-    id: int = -1               # 数据库自增ID
+    """货架上的固定货位。"""
+    slot_id: str = ""
     shelf_id: int = 0
     face: int = 0              # 0=-X 侧, 1=+X 侧
     level: int = 0             # 0 到 (num_levels-1), 从下到上
     y_cm: float = 0.0          # 商品中心距货架原点Y轴距离 (厘米)
-    sku: str = ""
+    expected_sku: str = ""
+    actual_sku: Optional[str] = None
     width_cm: Optional[float] = None   # 商品沿局部Y的宽度 (厘米)
     height_cm: Optional[float] = None  # 商品沿局部Z的高度 (厘米)
     image_dir: str = ""               # 实例图片相对目录
+    status: str = ""
 
 
 @dataclass
@@ -129,6 +141,15 @@ class WorldPos:
     x: float
     y: float
     z: float
+
+
+_UNSET = object()
+
+
+def slot_status(expected_sku: str, actual_sku: Optional[str]) -> str:
+    if actual_sku is None:
+        return "缺货"
+    return "正常" if actual_sku == expected_sku else "摆放错误"
 
 
 # ============================================================
@@ -188,6 +209,19 @@ class ShelfDatabase:
             )
         """)
 
+        # Delivery tables are scene fixtures, not shelves.  In particular they
+        # never own rows from shelf_inventory.
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS delivery_tables (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                name            TEXT NOT NULL DEFAULT '',
+                world_x         REAL NOT NULL DEFAULT 0.0,
+                world_y         REAL NOT NULL DEFAULT 0.0,
+                yaw             REAL NOT NULL DEFAULT 0.0,
+                created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+
         # SKU目录表
         cur.execute("""
             CREATE TABLE IF NOT EXISTS sku_catalog (
@@ -204,23 +238,25 @@ class ShelfDatabase:
     def _create_inventory_table(self):
         self.conn.execute("""
             CREATE TABLE shelf_inventory (
-                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                slot_id         TEXT PRIMARY KEY,
                 shelf_id        INTEGER NOT NULL,
                 face            INTEGER NOT NULL CHECK(face IN (0, 1)),
                 level           INTEGER NOT NULL CHECK(level >= 0),
                 y_cm            REAL NOT NULL CHECK(y_cm >= 0),
-                sku             TEXT NOT NULL,
+                expected_sku    TEXT NOT NULL,
+                actual_sku      TEXT DEFAULT NULL,
                 width_cm        REAL DEFAULT NULL CHECK(width_cm IS NULL OR width_cm >= 0),
                 height_cm       REAL DEFAULT NULL CHECK(height_cm IS NULL OR height_cm >= 0),
                 image_dir       TEXT NOT NULL DEFAULT '',
                 FOREIGN KEY (shelf_id) REFERENCES shelf_groups(id) ON DELETE CASCADE,
-                FOREIGN KEY (sku) REFERENCES sku_catalog(sku) ON DELETE CASCADE,
+                FOREIGN KEY (expected_sku) REFERENCES sku_catalog(sku) ON DELETE RESTRICT,
+                FOREIGN KEY (actual_sku) REFERENCES sku_catalog(sku) ON DELETE RESTRICT,
                 UNIQUE(shelf_id, face, level, y_cm)
             )
         """)
 
     def _ensure_inventory_schema(self):
-        """Create the current inventory table or migrate the legacy z-offset schema."""
+        """Create the current schema; legacy files require the one-time migrator."""
         exists = self.conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='shelf_inventory'"
         ).fetchone()
@@ -229,44 +265,22 @@ class ShelfDatabase:
         ).fetchall()]
         if not columns:
             self._create_inventory_table()
-        elif "z_offset_cm" in columns:
-            # The old field stored the item's centre height above the shelf board.
-            # For non-stacked items, height_cm = 2 * z_offset_cm preserves world Z.
-            self.conn.execute("PRAGMA foreign_keys = OFF")
-            try:
-                self.conn.execute("BEGIN")
-                self.conn.execute("ALTER TABLE shelf_inventory RENAME TO shelf_inventory_legacy")
-                self._create_inventory_table()
-                self.conn.execute("""
-                    INSERT INTO shelf_inventory
-                        (id, shelf_id, face, level, y_cm, sku, width_cm, height_cm, image_dir)
-                    SELECT id, shelf_id, face, level, y_cm, sku, NULL,
-                           CASE WHEN z_offset_cm = 0 THEN NULL ELSE z_offset_cm * 2 END, ''
-                    FROM shelf_inventory_legacy
-                """)
-                self.conn.execute("DROP TABLE shelf_inventory_legacy")
-                self.conn.execute("COMMIT")
-            except Exception:
-                self.conn.execute("ROLLBACK")
-                raise
-            finally:
-                self.conn.execute("PRAGMA foreign_keys = ON")
-        elif not {"width_cm", "height_cm", "image_dir"}.issubset(columns):
-            # This supports databases created during development with a partial schema.
-            if "width_cm" not in columns:
-                self.conn.execute("ALTER TABLE shelf_inventory ADD COLUMN width_cm REAL DEFAULT NULL")
-            if "height_cm" not in columns:
-                self.conn.execute("ALTER TABLE shelf_inventory ADD COLUMN height_cm REAL DEFAULT NULL")
-            if "image_dir" not in columns:
-                self.conn.execute("ALTER TABLE shelf_inventory ADD COLUMN image_dir TEXT NOT NULL DEFAULT ''")
+        elif not {"slot_id", "expected_sku", "actual_sku"}.issubset(columns):
+            raise RuntimeError(
+                "Legacy shelf_inventory schema detected; run the fixed-slot migration first"
+            )
 
         self.conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_inventory_shelf
                 ON shelf_inventory(shelf_id, face, level, y_cm)
         """)
         self.conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_inventory_sku
-                ON shelf_inventory(sku)
+            CREATE INDEX IF NOT EXISTS idx_inventory_expected_sku
+                ON shelf_inventory(expected_sku)
+        """)
+        self.conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_inventory_actual_sku
+                ON shelf_inventory(actual_sku)
         """)
 
     # ================================================================
@@ -314,6 +328,52 @@ class ShelfDatabase:
             "SELECT * FROM shelf_types ORDER BY id"
         ).fetchall()
         return [ShelfType(**dict(r)) for r in rows]
+
+    def update_shelf_type(self, type_id: int, shelf_length: float, shelf_width: float,
+                          shelf_height: float, num_levels: int, bottom_clearance: float,
+                          level_spacing: float, panel_thick: float, back_thick: float,
+                          shelf_depth_normal: float, shelf_depth_bottom: float) -> None:
+        """Update shared physical parameters while keeping assigned inventory valid."""
+        if self.get_shelf_type(type_id) is None:
+            raise ValueError(f"Shelf type {type_id} does not exist")
+        positive_values = {
+            "shelf_length": shelf_length,
+            "shelf_width": shelf_width,
+            "shelf_height": shelf_height,
+            "level_spacing": level_spacing,
+            "panel_thick": panel_thick,
+            "back_thick": back_thick,
+            "shelf_depth_normal": shelf_depth_normal,
+            "shelf_depth_bottom": shelf_depth_bottom,
+        }
+        if any(value <= 0 for value in positive_values.values()):
+            raise ValueError("Shelf dimensions and thicknesses must be greater than zero")
+        if num_levels < 1:
+            raise ValueError("num_levels must be at least one")
+        if bottom_clearance < 0:
+            raise ValueError("bottom_clearance must not be negative")
+
+        invalid_slot = self.conn.execute(
+            "SELECT si.shelf_id, si.level, si.y_cm "
+            "FROM shelf_inventory si JOIN shelf_groups sg ON sg.id = si.shelf_id "
+            "WHERE sg.shelf_type_id = ? AND (si.level >= ? OR si.y_cm > ?) LIMIT 1",
+            (type_id, num_levels, shelf_length * 100),
+        ).fetchone()
+        if invalid_slot is not None:
+            raise ValueError(
+                f"Existing slot on shelf {invalid_slot['shelf_id']} would be outside the updated type "
+                f"(level {invalid_slot['level']}, y={invalid_slot['y_cm']} cm)"
+            )
+
+        self.conn.execute(
+            "UPDATE shelf_types SET shelf_length=?, shelf_width=?, shelf_height=?, num_levels=?, "
+            "bottom_clearance=?, level_spacing=?, panel_thick=?, back_thick=?, "
+            "shelf_depth_normal=?, shelf_depth_bottom=? WHERE id=?",
+            (shelf_length, shelf_width, shelf_height, num_levels, bottom_clearance,
+             level_spacing, panel_thick, back_thick, shelf_depth_normal,
+             shelf_depth_bottom, type_id),
+        )
+        self.conn.commit()
 
     def _resolve_shelf_params(self, shelf_id: int) -> ShelfType:
         """
@@ -543,6 +603,58 @@ class ShelfDatabase:
         return WorldPos(x=row["world_x"], y=row["world_y"], z=0.0)
 
     # ================================================================
+    # 交付桌管理
+    # ================================================================
+
+    def add_delivery_table(self, name: str = "", world_x: float = 0.0,
+                           world_y: float = 0.0, yaw: float = 0.0) -> int:
+        """Add a delivery table at its stable local footprint anchor."""
+        cur = self.conn.execute(
+            "INSERT INTO delivery_tables (name, world_x, world_y, yaw) VALUES (?, ?, ?, ?)",
+            (name, world_x, world_y, yaw),
+        )
+        self.conn.commit()
+        return cur.lastrowid
+
+    def update_delivery_table(self, table_id: int, name: str = None,
+                              world_x: float = None, world_y: float = None,
+                              yaw: float = None):
+        """Update only the editable delivery-table pose fields."""
+        fields = []
+        values = []
+        for column, value in (("name", name), ("world_x", world_x),
+                              ("world_y", world_y), ("yaw", yaw)):
+            if value is not None:
+                fields.append(f"{column} = ?")
+                values.append(value)
+        if not fields:
+            return
+        values.append(table_id)
+        self.conn.execute(
+            f"UPDATE delivery_tables SET {', '.join(fields)} WHERE id = ?", values
+        )
+        self.conn.commit()
+
+    def remove_delivery_table(self, table_id: int):
+        """Remove a table fixture.  No inventory can be affected."""
+        self.conn.execute("DELETE FROM delivery_tables WHERE id = ?", (table_id,))
+        self.conn.commit()
+
+    def get_delivery_table(self, table_id: int) -> Optional[DeliveryTable]:
+        row = self.conn.execute(
+            "SELECT id, name, world_x, world_y, yaw, created_at "
+            "FROM delivery_tables WHERE id = ?", (table_id,)
+        ).fetchone()
+        return None if row is None else DeliveryTable(**dict(row))
+
+    def get_all_delivery_tables(self) -> List[DeliveryTable]:
+        rows = self.conn.execute(
+            "SELECT id, name, world_x, world_y, yaw, created_at "
+            "FROM delivery_tables ORDER BY id"
+        ).fetchall()
+        return [DeliveryTable(**dict(row)) for row in rows]
+
+    # ================================================================
     # SKU 目录管理
     # ================================================================
 
@@ -589,44 +701,139 @@ class ShelfDatabase:
         return [SkuInfo(**dict(r)) for r in rows]
 
     def remove_sku_from_catalog(self, sku: str):
-        """从目录中删除SKU (级联删除库存)"""
+        """删除未被固定货位引用的 SKU。"""
+        referenced = self.conn.execute(
+            "SELECT COUNT(*) FROM shelf_inventory "
+            "WHERE expected_sku = ? OR actual_sku = ?",
+            (sku, sku),
+        ).fetchone()[0]
+        if referenced:
+            raise ValueError("SKU is referenced by shelf slots")
         self.conn.execute("DELETE FROM sku_catalog WHERE sku = ?", (sku,))
         self.conn.commit()
 
     # ================================================================
-    # 库存管理 (核心) — 一个 slot = 一个商品实例
+    # 固定货位管理
     # ================================================================
 
-    def set_slot(self, shelf_id: int, face: int, level: int, y_cm: float, sku: str,
-                 width_cm: Optional[float] = None, height_cm: Optional[float] = None,
-                 image_dir: str = ""):
-        """
-        在货架上放置一个商品 (一个 slot = 一个商品实例)
+    @staticmethod
+    def _slot_from_row(row: sqlite3.Row) -> ShelfSlot:
+        data = dict(row)
+        data["status"] = slot_status(data["expected_sku"], data["actual_sku"])
+        return ShelfSlot(**data)
 
-        Args:
-            shelf_id: 货架组ID
-            face: 面 0=-X 侧, 1=+X 侧
-            level: 层号 (从下到上)
-            y_cm: 商品中心距货架原点Y轴距离 (厘米)
-            sku: 商品SKU名
-            width_cm: 商品沿局部Y的宽度 (厘米), 可空
-            height_cm: 商品沿局部Z的高度 (厘米), 可空
-            image_dir: 实例图片相对目录
-        """
+    def _validate_slot_position(self, shelf_id: int, face: int,
+                                level: int, y_cm: float) -> None:
+        if face not in (0, 1) or level < 0 or y_cm < 0:
+            raise ValueError("Invalid shelf position")
+        if self.get_shelf_group(shelf_id) is None:
+            raise ValueError(f"Shelf {shelf_id} does not exist")
+        shelf_type = self._resolve_shelf_params(shelf_id)
+        if level >= shelf_type.num_levels or y_cm > shelf_type.shelf_length * 100:
+            raise ValueError(
+                f"Slot {self.format_slot_id(shelf_id, face, level, y_cm)} "
+                "is outside the shelf bounds"
+            )
+
+    def _validate_slot_skus(self, expected_sku: str,
+                            actual_sku: Optional[str]) -> None:
+        if not expected_sku or self.get_sku_info(expected_sku) is None:
+            raise ValueError(f"SKU {expected_sku} does not exist")
+        if actual_sku is not None and self.get_sku_info(actual_sku) is None:
+            raise ValueError(f"SKU {actual_sku} does not exist")
+
+    def create_slot(self, shelf_id: int, face: int, level: int, y_cm: float,
+                    expected_sku: str, actual_sku: Any = _UNSET,
+                    width_cm: Optional[float] = None,
+                    height_cm: Optional[float] = None,
+                    image_dir: str = "") -> str:
+        shelf_id, face, level, y_cm = int(shelf_id), int(face), int(level), float(y_cm)
+        actual_sku = expected_sku if actual_sku is _UNSET else actual_sku
+        self._validate_slot_position(shelf_id, face, level, y_cm)
+        self._validate_slot_skus(expected_sku, actual_sku)
+        slot_id = self.format_slot_id(shelf_id, face, level, y_cm)
+        try:
+            self.conn.execute(
+                "INSERT INTO shelf_inventory "
+                "(slot_id, shelf_id, face, level, y_cm, expected_sku, actual_sku, "
+                "width_cm, height_cm, image_dir) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (slot_id, shelf_id, face, level, y_cm, expected_sku, actual_sku,
+                 width_cm, height_cm, image_dir),
+            )
+        except sqlite3.IntegrityError as error:
+            raise ValueError(f"Slot {slot_id} already exists") from error
+        self.conn.commit()
+        return slot_id
+
+    def update_slot(self, slot_id: str, **changes: Any) -> ShelfSlot:
+        allowed = {"expected_sku", "actual_sku", "width_cm", "height_cm", "image_dir"}
+        invalid = set(changes) - allowed
+        if invalid:
+            raise ValueError(f"Slot location fields cannot be changed: {', '.join(sorted(invalid))}")
+        slot = self.get_slot_by_id(slot_id)
+        if slot is None:
+            raise ValueError(f"Slot {slot_id} does not exist")
+        if not changes:
+            return slot
+
+        expected_sku = str(changes.get("expected_sku", slot.expected_sku)).strip()
+        actual_sku = changes.get("actual_sku", slot.actual_sku)
+        if actual_sku is not None:
+            actual_sku = str(actual_sku).strip()
+        self._validate_slot_skus(expected_sku, actual_sku)
+
+        values = {
+            "expected_sku": expected_sku,
+            "actual_sku": actual_sku,
+            "width_cm": changes.get("width_cm", slot.width_cm),
+            "height_cm": changes.get("height_cm", slot.height_cm),
+            "image_dir": str(changes.get("image_dir", slot.image_dir)),
+        }
         self.conn.execute(
-            "INSERT INTO shelf_inventory (shelf_id, face, level, y_cm, sku, width_cm, height_cm, image_dir) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
-            "ON CONFLICT(shelf_id, face, level, y_cm) DO UPDATE SET "
-            "sku = excluded.sku, width_cm = excluded.width_cm, "
-            "height_cm = excluded.height_cm, image_dir = excluded.image_dir",
-            (shelf_id, face, level, y_cm, sku, width_cm, height_cm, image_dir)
+            "UPDATE shelf_inventory SET expected_sku=?, actual_sku=?, width_cm=?, "
+            "height_cm=?, image_dir=? WHERE slot_id=?",
+            (*values.values(), slot_id),
         )
         self.conn.commit()
+        return self.get_slot_by_id(slot_id)
+
+    def set_actual_sku(self, slot_id: str, actual_sku: Optional[str]) -> ShelfSlot:
+        return self.update_slot(slot_id, actual_sku=actual_sku)
+
+    def set_actual_sku_batch(self, changes: List[tuple[str, Optional[str]]]) -> List[ShelfSlot]:
+        """Update selected fixed-slot observations in one SQLite transaction."""
+        if not changes:
+            raise ValueError("At least one slot change is required")
+        slot_ids = [slot_id for slot_id, _ in changes]
+        if len(set(slot_ids)) != len(slot_ids):
+            raise ValueError("Duplicate slot IDs are not allowed")
+        with self.conn:
+            for slot_id, actual_sku in changes:
+                slot = self.get_slot_by_id(slot_id)
+                if slot is None:
+                    raise ValueError(f"Slot {slot_id} does not exist")
+                if actual_sku is not None:
+                    actual_sku = str(actual_sku).strip()
+                self._validate_slot_skus(slot.expected_sku, actual_sku)
+                self.conn.execute(
+                    "UPDATE shelf_inventory SET actual_sku=? WHERE slot_id=?",
+                    (actual_sku, slot_id),
+                )
+        return [self.get_slot_by_id(slot_id) for slot_id in slot_ids]
+
+    def take_slot(self, slot_id: str) -> ShelfSlot:
+        return self.set_actual_sku(slot_id, None)
+
+    def restock_slot(self, slot_id: str) -> ShelfSlot:
+        slot = self.get_slot_by_id(slot_id)
+        if slot is None:
+            raise ValueError(f"Slot {slot_id} does not exist")
+        return self.set_actual_sku(slot_id, slot.expected_sku)
 
     def import_slots_batch(self, new_skus: List[Dict[str, str]], slots: List[Dict[str, Any]]) -> List[str]:
-        """Atomically create SKUs and inventory instances after all caller-side validation."""
+        """Atomically create SKUs and fixed shelf slots."""
         if not slots:
-            raise ValueError("At least one inventory item is required")
+            raise ValueError("At least one shelf slot is required")
         keys = [(int(slot["shelf_id"]), int(slot["face"]), int(slot["level"]), float(slot["y_cm"])) for slot in slots]
         if len(set(keys)) != len(keys):
             raise ValueError("Duplicate positions exist in this import")
@@ -642,37 +849,28 @@ class ShelfDatabase:
                 )
             for slot, key in zip(slots, keys):
                 shelf_id, face, level, y_cm = key
-                if face not in (0, 1) or level < 0 or y_cm < 0:
-                    raise ValueError("Invalid shelf position")
-                if self.get_shelf_group(shelf_id) is None:
-                    raise ValueError(f"Shelf {shelf_id} does not exist")
-                shelf_type = self._resolve_shelf_params(shelf_id)
-                if level >= shelf_type.num_levels or y_cm > shelf_type.shelf_length * 100:
-                    raise ValueError(f"Slot {self.format_slot_id(*key)} is outside the shelf bounds")
-                if self.get_sku_info(str(slot["sku"])) is None:
-                    raise ValueError(f"SKU {slot['sku']} does not exist")
-                exists = self.conn.execute(
-                    "SELECT 1 FROM shelf_inventory WHERE shelf_id=? AND face=? AND level=? AND y_cm=?",
-                    key
-                ).fetchone()
-                if exists is not None:
-                    raise ValueError(f"Slot {self.format_slot_id(*key)} already exists")
+                expected_sku = str(slot["expected_sku"]).strip()
+                actual_sku = slot.get("actual_sku", expected_sku)
+                if actual_sku is not None:
+                    actual_sku = str(actual_sku).strip()
+                self._validate_slot_position(*key)
+                self._validate_slot_skus(expected_sku, actual_sku)
+                slot_id = self.format_slot_id(*key)
                 self.conn.execute(
-                    "INSERT INTO shelf_inventory (shelf_id, face, level, y_cm, sku, width_cm, height_cm, image_dir) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (shelf_id, face, level, y_cm, str(slot["sku"]), slot.get("width_cm"),
-                     slot.get("height_cm"), str(slot.get("image_dir", "")))
+                    "INSERT INTO shelf_inventory "
+                    "(slot_id, shelf_id, face, level, y_cm, expected_sku, actual_sku, "
+                    "width_cm, height_cm, image_dir) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (slot_id, shelf_id, face, level, y_cm, expected_sku, actual_sku,
+                     slot.get("width_cm"), slot.get("height_cm"), str(slot.get("image_dir", ""))),
                 )
         return [self.format_slot_id(*key) for key in keys]
 
-    def remove_slot(self, shelf_id: int, face: int, level: int, y_cm: float):
-        """删除指定位置的商品"""
-        self.conn.execute(
-            "DELETE FROM shelf_inventory "
-            "WHERE shelf_id=? AND face=? AND level=? AND y_cm=?",
-            (shelf_id, face, level, y_cm)
-        )
+    def delete_slot(self, slot_id: str) -> Optional[ShelfSlot]:
+        """删除固定货位。"""
+        slot = self.get_slot_by_id(slot_id)
+        self.conn.execute("DELETE FROM shelf_inventory WHERE slot_id=?", (slot_id,))
         self.conn.commit()
+        return slot
 
     def clear_shelf(self, shelf_id: int) -> int:
         """清空指定货架组的所有库存，并返回删除数量。"""
@@ -701,35 +899,59 @@ class ShelfDatabase:
 
     def get_slot(self, shelf_id: int, face: int, level: int,
                  y_cm: float) -> Optional[ShelfSlot]:
-        """获取指定位置的商品"""
+        """按位置获取固定货位。"""
         row = self.conn.execute(
-            "SELECT id, shelf_id, face, level, y_cm, sku, width_cm, height_cm, image_dir "
-            "FROM shelf_inventory "
+            "SELECT * FROM shelf_inventory "
             "WHERE shelf_id=? AND face=? AND level=? AND y_cm=?",
             (shelf_id, face, level, y_cm)
         ).fetchone()
-        if row is None:
-            return None
-        return ShelfSlot(**dict(row))
+        return None if row is None else self._slot_from_row(row)
+
+    def get_slot_by_id(self, slot_id: str) -> Optional[ShelfSlot]:
+        row = self.conn.execute(
+            "SELECT * FROM shelf_inventory WHERE slot_id=?", (slot_id,)
+        ).fetchone()
+        return None if row is None else self._slot_from_row(row)
 
     def get_shelf_inventory(self, shelf_id: int) -> List[ShelfSlot]:
-        """获取指定货架组的所有商品"""
+        """获取指定货架组的所有固定货位。"""
         rows = self.conn.execute(
-            "SELECT id, shelf_id, face, level, y_cm, sku, width_cm, height_cm, image_dir "
+            "SELECT * "
             "FROM shelf_inventory WHERE shelf_id=? "
-            "ORDER BY face, level, y_cm, sku",
+            "ORDER BY face, level, y_cm, slot_id",
             (shelf_id,)
         ).fetchall()
-        return [ShelfSlot(**dict(r)) for r in rows]
+        return [self._slot_from_row(row) for row in rows]
+
+    def get_all_slots(self) -> List[ShelfSlot]:
+        rows = self.conn.execute(
+            "SELECT * FROM shelf_inventory ORDER BY shelf_id, face, level, y_cm"
+        ).fetchall()
+        return [self._slot_from_row(row) for row in rows]
+
+    def get_shortage_slots(self) -> List[ShelfSlot]:
+        rows = self.conn.execute(
+            "SELECT * FROM shelf_inventory WHERE actual_sku IS NULL "
+            "ORDER BY shelf_id, face, level, y_cm"
+        ).fetchall()
+        return [self._slot_from_row(row) for row in rows]
+
+    def get_misplaced_slots(self) -> List[ShelfSlot]:
+        rows = self.conn.execute(
+            "SELECT * FROM shelf_inventory "
+            "WHERE actual_sku IS NOT NULL AND actual_sku != expected_sku "
+            "ORDER BY shelf_id, face, level, y_cm"
+        ).fetchall()
+        return [self._slot_from_row(row) for row in rows]
 
     def get_shelf_sku_summary(self, shelf_id: int) -> List[Dict[str, Any]]:
         """
-        查询: 指定货架有哪些SKU及总数量 (每个 slot = 1个商品)
+        查询指定货架当前实际 SKU 及数量。
         """
         rows = self.conn.execute(
-            "SELECT sku, COUNT(*) as total_qty "
-            "FROM shelf_inventory WHERE shelf_id=? "
-            "GROUP BY sku ORDER BY sku",
+            "SELECT actual_sku AS sku, COUNT(*) as total_qty "
+            "FROM shelf_inventory WHERE shelf_id=? AND actual_sku IS NOT NULL "
+            "GROUP BY actual_sku ORDER BY actual_sku",
             (shelf_id,)
         ).fetchall()
         return [{"sku": r["sku"], "total_quantity": r["total_qty"]} for r in rows]
@@ -739,27 +961,38 @@ class ShelfDatabase:
         查询: 指定SKU在哪些货架的哪些位置
         """
         rows = self.conn.execute(
-            "SELECT si.shelf_id, sg.name as shelf_name, "
-            "si.face, si.level, si.y_cm, si.width_cm, si.height_cm, si.image_dir "
+            "SELECT si.slot_id, si.shelf_id, sg.name as shelf_name, "
+            "si.face, si.level, si.y_cm, si.expected_sku, si.actual_sku, "
+            "si.width_cm, si.height_cm, si.image_dir "
             "FROM shelf_inventory si "
             "JOIN shelf_groups sg ON si.shelf_id = sg.id "
-            "WHERE si.sku = ? "
+            "WHERE si.actual_sku = ? "
             "ORDER BY si.shelf_id, si.face, si.level, si.y_cm",
             (sku,)
         ).fetchall()
-        return [dict(r) for r in rows]
+        return [{**dict(row), "status": slot_status(row["expected_sku"], row["actual_sku"])} for row in rows]
+
+    def find_expected_sku_locations(self, sku: str) -> List[Dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT slot_id, shelf_id, face, level, y_cm, expected_sku, actual_sku "
+            "FROM shelf_inventory WHERE expected_sku = ? "
+            "ORDER BY shelf_id, face, level, y_cm",
+            (sku,),
+        ).fetchall()
+        return [{**dict(row), "status": slot_status(row["expected_sku"], row["actual_sku"])} for row in rows]
 
     def find_sku_world_positions(self, sku: str) -> List[Dict[str, Any]]:
         """
         查询: 指定SKU所在位置的世界坐标
         """
         rows = self.conn.execute(
-            "SELECT si.shelf_id, sg.name as shelf_name, "
+            "SELECT si.slot_id, si.shelf_id, sg.name as shelf_name, "
             "sg.world_x, sg.world_y, sg.yaw, "
-            "si.face, si.level, si.y_cm, si.width_cm, si.height_cm, si.image_dir "
+            "si.face, si.level, si.y_cm, si.expected_sku, si.actual_sku, "
+            "si.width_cm, si.height_cm, si.image_dir "
             "FROM shelf_inventory si "
             "JOIN shelf_groups sg ON si.shelf_id = sg.id "
-            "WHERE si.sku = ? "
+            "WHERE si.actual_sku = ? "
             "ORDER BY si.shelf_id, si.face, si.level, si.y_cm",
             (sku,)
         ).fetchall()
@@ -773,6 +1006,7 @@ class ShelfDatabase:
                 local, r["world_x"], r["world_y"], r["yaw"]
             )
             results.append({
+                "slot_id": r["slot_id"],
                 "shelf_id": r["shelf_id"],
                 "shelf_name": r["shelf_name"],
                 "face": r["face"],
@@ -781,10 +1015,12 @@ class ShelfDatabase:
                 "width_cm": r["width_cm"],
                 "height_cm": r["height_cm"],
                 "image_dir": r["image_dir"],
+                "expected_sku": r["expected_sku"],
+                "actual_sku": r["actual_sku"],
+                "status": slot_status(r["expected_sku"], r["actual_sku"]),
                 "world_x": world.x,
                 "world_y": world.y,
                 "world_z": world.z,
-                "slot_id_str": self.format_slot_id(r["shelf_id"], r["face"], r["level"], r["y_cm"]),
             })
         return results
 
@@ -803,7 +1039,7 @@ class ShelfDatabase:
             总数量
         """
         row = self.conn.execute(
-            "SELECT COUNT(*) FROM shelf_inventory WHERE sku = ?",
+            "SELECT COUNT(*) FROM shelf_inventory WHERE actual_sku = ?",
             (sku,)
         ).fetchone()
         return row[0]
@@ -817,7 +1053,7 @@ class ShelfDatabase:
         """
         rows = self.conn.execute(
             "SELECT shelf_id, COUNT(*) as total_quantity "
-            "FROM shelf_inventory WHERE sku = ? "
+            "FROM shelf_inventory WHERE actual_sku = ? "
             "GROUP BY shelf_id ORDER BY shelf_id",
             (sku,)
         ).fetchall()
@@ -840,12 +1076,10 @@ class ShelfDatabase:
         return self.local_to_world(local, shelf.world_x, shelf.world_y, shelf.yaw)
 
     def get_all_slots_world(self) -> List[Dict[str, Any]]:
-        """
-        获取所有商品的世界坐标
-        用于生成 MuJoCo 场景
-        """
+        """获取所有固定货位的世界坐标和当前状态。"""
         rows = self.conn.execute(
-            "SELECT si.shelf_id, si.face, si.level, si.y_cm, si.sku, si.width_cm, si.height_cm, si.image_dir, "
+            "SELECT si.slot_id, si.shelf_id, si.face, si.level, si.y_cm, "
+            "si.expected_sku, si.actual_sku, si.width_cm, si.height_cm, si.image_dir, "
             "sg.world_x, sg.world_y, sg.yaw "
             "FROM shelf_inventory si "
             "JOIN shelf_groups sg ON si.shelf_id = sg.id "
@@ -861,11 +1095,14 @@ class ShelfDatabase:
                 local, r["world_x"], r["world_y"], r["yaw"]
             )
             results.append({
+                "slot_id": r["slot_id"],
                 "shelf_id": r["shelf_id"],
                 "face": r["face"],
                 "level": r["level"],
                 "y_cm": r["y_cm"],
-                "sku": r["sku"],
+                "expected_sku": r["expected_sku"],
+                "actual_sku": r["actual_sku"],
+                "status": slot_status(r["expected_sku"], r["actual_sku"]),
                 "width_cm": r["width_cm"],
                 "height_cm": r["height_cm"],
                 "image_dir": r["image_dir"],
@@ -873,7 +1110,6 @@ class ShelfDatabase:
                 "world_y": world.y,
                 "world_z": world.z,
                 "yaw": r["yaw"],
-                "slot_id_str": self.format_slot_id(r["shelf_id"], r["face"], r["level"], r["y_cm"]),
             })
         return results
 
@@ -886,7 +1122,8 @@ class ShelfDatabase:
             return []
 
         rows = self.conn.execute(
-            "SELECT si.face, si.level, si.y_cm, si.sku, si.width_cm, si.height_cm, si.image_dir "
+            "SELECT si.slot_id, si.face, si.level, si.y_cm, si.expected_sku, si.actual_sku, "
+            "si.width_cm, si.height_cm, si.image_dir "
             "FROM shelf_inventory si "
             "WHERE si.shelf_id = ? "
             "ORDER BY si.face, si.level, si.y_cm",
@@ -899,17 +1136,19 @@ class ShelfDatabase:
                                           r["y_cm"], r["height_cm"])
             world = self.local_to_world(local, shelf.world_x, shelf.world_y, shelf.yaw)
             results.append({
+                "slot_id": r["slot_id"],
                 "face": r["face"],
                 "level": r["level"],
                 "y_cm": r["y_cm"],
-                "sku": r["sku"],
+                "expected_sku": r["expected_sku"],
+                "actual_sku": r["actual_sku"],
+                "status": slot_status(r["expected_sku"], r["actual_sku"]),
                 "width_cm": r["width_cm"],
                 "height_cm": r["height_cm"],
                 "image_dir": r["image_dir"],
                 "world_x": world.x,
                 "world_y": world.y,
                 "world_z": world.z,
-                "slot_id_str": self.format_slot_id(shelf_id, r["face"], r["level"], r["y_cm"]),
             })
         return results
 
@@ -925,17 +1164,32 @@ class ShelfDatabase:
         n_shelves = self.conn.execute(
             "SELECT COUNT(*) FROM shelf_groups"
         ).fetchone()[0]
+        n_delivery_tables = self.conn.execute(
+            "SELECT COUNT(*) FROM delivery_tables"
+        ).fetchone()[0]
         n_skus = self.conn.execute(
             "SELECT COUNT(*) FROM sku_catalog"
         ).fetchone()[0]
-        n_items = self.conn.execute(
-            "SELECT COUNT(*) FROM shelf_inventory"
+        total_positions = self.conn.execute("SELECT COUNT(*) FROM shelf_inventory").fetchone()[0]
+        actual_items = self.conn.execute(
+            "SELECT COUNT(*) FROM shelf_inventory WHERE actual_sku IS NOT NULL"
+        ).fetchone()[0]
+        shortages = self.conn.execute(
+            "SELECT COUNT(*) FROM shelf_inventory WHERE actual_sku IS NULL"
+        ).fetchone()[0]
+        misplacements = self.conn.execute(
+            "SELECT COUNT(*) FROM shelf_inventory "
+            "WHERE actual_sku IS NOT NULL AND actual_sku != expected_sku"
         ).fetchone()[0]
         return {
             "shelf_types": n_types,
             "shelf_groups": n_shelves,
+            "delivery_tables": n_delivery_tables,
             "sku_catalog": n_skus,
-            "total_items": n_items,
+            "total_positions": total_positions,
+            "actual_items": actual_items,
+            "shortages": shortages,
+            "misplacements": misplacements,
         }
 
     @staticmethod
@@ -949,7 +1203,13 @@ class ShelfDatabase:
         if len(parts) != 4:
             raise ValueError(f"Invalid slot ID string: {slot_id_str}, "
                              f"expected format 'shelf-face-level-ycm'")
-        return int(parts[0]), int(parts[1]), int(parts[2]), float(parts[3])
+        try:
+            parsed = int(parts[0]), int(parts[1]), int(parts[2]), float(parts[3])
+        except ValueError as error:
+            raise ValueError(f"Invalid slot ID string: {slot_id_str}") from error
+        if self.format_slot_id(*parsed) != slot_id_str:
+            raise ValueError(f"Non-canonical slot ID string: {slot_id_str}")
+        return parsed
 
     def close(self):
         """关闭数据库连接"""
@@ -963,7 +1223,7 @@ class ShelfDatabase:
 
 
 # ============================================================
-# 便捷函数: 从现有 generate_scene.py 的参数初始化数据库
+# 便捷函数: 从 MuJoCo 场景生成器的参数初始化数据库
 # ============================================================
 
 def init_database_from_scene_params(db: ShelfDatabase,
@@ -1047,15 +1307,12 @@ if __name__ == "__main__":
 
     S0, S1, S2, S3 = shelf_ids
 
-    # 3. 放置商品 (一个 slot = 一个商品)
-    # 格式: set_slot(shelf_id, face, level, y_cm, sku, height_cm=...)
-    db.set_slot(S0, face=0, level=2, y_cm=50, sku="cracker_box", height_cm=8)
-    db.set_slot(S0, face=0, level=2, y_cm=65, sku="tomato_soup_can", height_cm=8)
-    db.set_slot(S0, face=1, level=4, y_cm=90, sku="banana", height_cm=10)
-    db.set_slot(S1, face=0, level=0, y_cm=5, sku="mustard_bottle", height_cm=6)
-    db.set_slot(S3, face=1, level=1, y_cm=30, sku="cracker_box", height_cm=12)
-    # 同一位置覆盖: 更新 S0-0-2-50 为另一个 SKU
-    db.set_slot(S0, face=0, level=2, y_cm=50, sku="banana", height_cm=8)
+    # 3. 创建固定货位，示例数据默认均为正常状态
+    db.create_slot(S0, 0, 2, 50, "cracker_box", "cracker_box", height_cm=8)
+    db.create_slot(S0, 0, 2, 65, "tomato_soup_can", "tomato_soup_can", height_cm=8)
+    db.create_slot(S0, 1, 4, 90, "banana", "banana", height_cm=10)
+    db.create_slot(S1, 0, 0, 5, "mustard_bottle", "mustard_bottle", height_cm=6)
+    db.create_slot(S3, 1, 1, 30, "cracker_box", "cracker_box", height_cm=12)
 
     # 4. 查询演示
     print("=" * 60)
@@ -1073,18 +1330,18 @@ if __name__ == "__main__":
 
     print("\n--- 查询: cracker_box的世界坐标 ---")
     for pos in db.find_sku_world_positions("cracker_box"):
-        print(f"  {pos['slot_id_str']}: world=({pos['world_x']:.3f}, "
+        print(f"  {pos['slot_id']}: world=({pos['world_x']:.3f}, "
               f"{pos['world_y']:.3f}, {pos['world_z']:.3f})")
 
     print(f"\n--- 查询: 位置 {S0}-0-2-65 的商品 ---")
     slot = db.get_slot(S0, 0, 2, 65)
     if slot:
-        print(f"  {slot.sku}")
+        print(f"  expected={slot.expected_sku}, actual={slot.actual_sku}, status={slot.status}")
 
     print("\n--- 所有商品世界坐标 (用于MuJoCo生成) ---")
     all_slots = db.get_all_slots_world()
     for s in all_slots:
-        print(f"  {s['slot_id_str']} {s['sku']}: "
+        print(f"  {s['slot_id']} {s['actual_sku']}: "
               f"world=({s['world_x']:.3f}, {s['world_y']:.3f}, {s['world_z']:.3f})")
 
     print(f"\n--- 货架{S0}的世界位置 ---")
@@ -1093,7 +1350,7 @@ if __name__ == "__main__":
 
     # 5. 测试删除
     print("\n--- 测试: 删除位置 S0-0-2-65 ---")
-    db.remove_slot(S0, face=0, level=2, y_cm=65)
+    db.delete_slot(db.format_slot_id(S0, 0, 2, 65))
     slot = db.get_slot(S0, 0, 2, 65)
     print(f"  删除后查询: {slot}")
 

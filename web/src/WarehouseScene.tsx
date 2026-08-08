@@ -1,12 +1,14 @@
-import { Html, OrbitControls, OrthographicCamera, PerspectiveCamera, useTexture } from '@react-three/drei'
+import { Edges, Html, OrbitControls, OrthographicCamera, PerspectiveCamera, useTexture } from '@react-three/drei'
 import { Canvas, ThreeEvent } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo } from 'react'
 import { Color, MOUSE } from 'three'
-import type { Selection, Shelf, ShelfType, Slot, Sku } from './types'
+import type { DeliveryTable, DeliveryTableSpec, Selection, Shelf, ShelfType, Slot, Sku } from './types'
 import { skuColor } from './skuColors'
 
 type SceneProps = {
   shelves: Shelf[]
+  deliveryTables: DeliveryTable[]
+  deliveryTableSpec: DeliveryTableSpec
   shelfTypes: ShelfType[]
   slots: Slot[]
   skus: Sku[]
@@ -71,6 +73,38 @@ function ShelfModel({ shelf, type, selected, onClick }: {
   )
 }
 
+function DeliveryTableModel({ table, spec, selected, onClick }: {
+  table: DeliveryTable
+  spec: DeliveryTableSpec
+  selected: boolean
+  onClick: () => void
+}) {
+  const click = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation()
+    onClick()
+  }
+  const legOffset = 0.04
+  return (
+    <group position={[table.world_x, table.world_y, 0]} rotation={[0, 0, table.yaw]} onClick={click}>
+      <mesh position={[spec.length / 2, spec.width / 2, spec.height]} castShadow receiveShadow>
+        <boxGeometry args={[spec.length, spec.width, spec.top_thickness]} />
+        <meshStandardMaterial color={selected ? '#f5b544' : '#65d8d1'} metalness={0.2} roughness={0.46} />
+      </mesh>
+      {[legOffset, spec.length - legOffset].map((x) => [legOffset, spec.width - legOffset].map((y) => (
+        <mesh key={`${x}-${y}`} position={[x, y, spec.height / 2]} castShadow>
+          <boxGeometry args={[0.04, 0.04, spec.height]} />
+          <meshStandardMaterial color="#4d5964" metalness={0.5} roughness={0.42} />
+        </mesh>
+      )))}
+      <mesh position={[spec.length / 2, spec.width / 2, spec.height + spec.top_thickness / 2 + 0.004]} castShadow>
+        <boxGeometry args={[0.16, 0.1, 0.004]} />
+        <meshStandardMaterial color="#fbfaf2" roughness={0.88} />
+      </mesh>
+      <CoordinateFrame label={`交付桌 ${table.id} 局部原点`} size={0.25} />
+    </group>
+  )
+}
+
 function CoordinateFrame({ label, size, world = false }: { label: string; size: number; world?: boolean }) {
   const offset = size + 0.04
   return (
@@ -97,7 +131,7 @@ function ItemBox({ slot, color, selected, onClick }: {
   onClick: () => void
 }) {
   const displayColor = selected ? '#fff1b8' : color
-  const imageUrl = slot.image_dir ? `/api/item-images/${encodeURIComponent(slot.slot_id_str)}/0.png` : EMPTY_TEXTURE
+  const imageUrl = slot.image_dir ? `/api/item-images/${encodeURIComponent(slot.slot_id)}/0.png` : EMPTY_TEXTURE
   const texture = useTexture(imageUrl)
   useEffect(() => {
     if (!slot.image_dir) return
@@ -126,17 +160,31 @@ function ItemBox({ slot, color, selected, onClick }: {
       <meshStandardMaterial attach="material-3" color={displayColor} emissive={selected ? new Color('#9c6e12') : new Color('#000000')} emissiveIntensity={selected ? 0.26 : 0} roughness={0.48} />
       <meshStandardMaterial attach="material-4" color={displayColor} emissive={selected ? new Color('#9c6e12') : new Color('#000000')} emissiveIntensity={selected ? 0.26 : 0} roughness={0.48} />
       <meshStandardMaterial attach="material-5" color={displayColor} emissive={selected ? new Color('#9c6e12') : new Color('#000000')} emissiveIntensity={selected ? 0.26 : 0} roughness={0.48} />
+      {slot.status === '摆放错误' && <Edges color="#d94b46" lineWidth={2} />}
     </mesh>
   )
+}
+
+function EmptySlotMarker({ slot, selected, onClick }: { slot: Slot; selected: boolean; onClick: () => void }) {
+  const click = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation()
+    onClick()
+  }
+  return <mesh position={[slot.world_x, slot.world_y, slot.world_z]} rotation={[0, 0, slot.yaw]} onClick={click}>
+    <boxGeometry args={[0.035, Math.max(0.05, (slot.width_cm ?? 7.5) / 100), Math.max(0.05, (slot.height_cm ?? 14) / 100)]} />
+    <meshStandardMaterial color={selected ? '#f5b544' : '#f0b14a'} transparent opacity={selected ? 0.34 : 0.16} wireframe />
+    <Edges color={selected ? '#8c5b05' : '#c47d18'} lineWidth={selected ? 2 : 1} />
+  </mesh>
 }
 
 function SceneContent(props: SceneProps) {
   const colorBySku = useMemo(() => new Map(props.skus.map((sku, index) => [sku.sku, skuColor(index)])), [props.skus])
   const typeById = useMemo(() => new Map(props.shelfTypes.map((type) => [type.id, type])), [props.shelfTypes])
-  const selectedSlotId = props.selection.kind === 'slot' ? props.selection.slot.slot_id_str : undefined
+  const selectedSlotId = props.selection.kind === 'slot' ? props.selection.slot.slot_id : undefined
   const selectedShelfId = props.selection.kind === 'shelf'
     ? props.selection.shelfId
     : props.selection.kind === 'slot' ? props.selection.slot.shelf_id : undefined
+  const selectedDeliveryTableId = props.selection.kind === 'delivery-table' ? props.selection.tableId : undefined
 
   return (
     <>
@@ -176,15 +224,19 @@ function SceneContent(props: SceneProps) {
           onClick={() => props.onSelect({ kind: 'shelf', shelfId: shelf.id })}
         />
       ))}
-      <Suspense fallback={null}>{props.slots.map((slot) => (
-          <ItemBox
-            key={slot.slot_id_str}
-            slot={slot}
-            color={colorBySku.get(slot.sku) ?? '#a9b5c1'}
-            selected={slot.slot_id_str === selectedSlotId}
-            onClick={() => props.onSelect({ kind: 'slot', slot })}
-          />
-      ))}</Suspense>
+      {props.deliveryTables.map((table) => (
+        <DeliveryTableModel
+          key={table.id}
+          table={table}
+          spec={props.deliveryTableSpec}
+          selected={table.id === selectedDeliveryTableId}
+          onClick={() => props.onSelect({ kind: 'delivery-table', tableId: table.id })}
+        />
+      ))}
+      <Suspense fallback={null}>{props.slots.map((slot) => slot.actual_sku === null
+        ? <EmptySlotMarker key={slot.slot_id} slot={slot} selected={slot.slot_id === selectedSlotId} onClick={() => props.onSelect({ kind: 'slot', slot })} />
+        : <ItemBox key={slot.slot_id} slot={slot} color={colorBySku.get(slot.actual_sku) ?? '#a9b5c1'} selected={slot.slot_id === selectedSlotId} onClick={() => props.onSelect({ kind: 'slot', slot })} />
+      )}</Suspense>
     </>
   )
 }

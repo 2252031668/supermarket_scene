@@ -5,7 +5,7 @@
 运行此脚本生成 shelf_inventory.db
 
 Slot ID 格式: {shelf_id}-{face}-{level}-{y_cm}
-    一个 slot = 一个商品实例, y_cm 精确到厘米
+    一个 slot = 一个固定货架位置, y_cm 精确到厘米
 """
 
 import os
@@ -17,6 +17,7 @@ from shelf_database import (
     DEFAULT_PANEL_THICK, DEFAULT_BACK_THICK,
     DEFAULT_SHELF_DEPTH_NORMAL, DEFAULT_SHELF_DEPTH_BOTTOM,
 )
+from scene_geometry import DELIVERY_TABLE_LENGTH, DELIVERY_TABLE_WIDTH
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -79,7 +80,7 @@ for k, v in SCANNED_MODELS.items():
 
 
 # ============================================================
-# 货架组位置 (与 generate_scene.py 一致)
+# 货架组位置 (与 MuJoCo 场景生成器一致)
 # ============================================================
 # 现有场景货架中心X = ±1.1, 中心Y = ±(0.93+0.25) = ±1.18
 # 货架局部原点 = 中心 - (DEFAULT_SHELF_WIDTH/2, DEFAULT_SHELF_LENGTH/2) = 中心 - (0.40, 0.93)
@@ -106,6 +107,20 @@ SHELF_CENTERS = [
 SHELF_ORIGINS = [
     (name, cx - DEFAULT_SHELF_WIDTH/2, cy - DEFAULT_SHELF_LENGTH/2, 0.0)
     for name, cx, cy in SHELF_CENTERS
+]
+
+# The legacy scene stored counter centres.  Delivery-table records instead use
+# their stable local min-X/min-Y footprint anchor, so these retain the exact
+# same physical placement without relying on screen directions.
+DELIVERY_TABLE_CENTERS = [
+    ("1号交付桌", -2.4, 3.6),
+    ("2号交付桌", 2.4, 3.6),
+    ("3号交付桌", -2.4, -3.6),
+    ("4号交付桌", 2.4, -3.6),
+]
+DELIVERY_TABLE_ORIGINS = [
+    (name, center_x - DELIVERY_TABLE_LENGTH / 2, center_y - DELIVERY_TABLE_WIDTH / 2, 0.0)
+    for name, center_x, center_y in DELIVERY_TABLE_CENTERS
 ]
 
 
@@ -176,9 +191,15 @@ def init_database(db_path: str):
         shelf_ids.append(sid)
         print(f"  ID={sid}: {name} 局部原点=({wx:.3f}, {wy:.3f}) type=standard")
 
-    # 3. 填充商品库存
+    # 3. 添加交付桌。它们是独立场景实体，不创建任何货架库存记录。
+    print("添加交付桌...")
+    for name, wx, wy, yaw in DELIVERY_TABLE_ORIGINS:
+        table_id = db.add_delivery_table(name=name, world_x=wx, world_y=wy, yaw=yaw)
+        print(f"  ID={table_id}: {name} 局部原点=({wx:.3f}, {wy:.3f})")
+
+    # 4. 填充固定货位，示例数据默认均为正常状态
     #    策略: 在货架长度范围内随机放置商品, 间距约 10-15cm
-    #    一个 slot = 一个商品实例, y_cm 精确到厘米；商品高度决定中心高度
+    #    slot_id 由位置生成，y_cm 精确到厘米；商品高度决定中心高度
     print("填充商品库存...")
 
     # 层 -> 品类映射
@@ -204,21 +225,27 @@ def init_database(db_path: str):
                     if np.random.random() > 0.5:
                         sku = str(np.random.choice(candidate_skus))
                         height_cm = float(np.random.randint(4, 21))  # 4-20cm 随机商品高度
-                        db.set_slot(sid, face=face, level=level,
-                                    y_cm=float(y_pos), sku=sku, height_cm=height_cm)
+                        db.create_slot(
+                            sid, face=face, level=level, y_cm=float(y_pos),
+                            expected_sku=sku, actual_sku=sku, height_cm=height_cm,
+                        )
                         total_items += 1
                     y_pos += np.random.randint(10, 21)  # 10-20cm 间距
 
     print(f"  已填充 {total_items} 个商品")
 
-    # 4. 验证数据
+    # 5. 验证数据
     print("\n" + "=" * 60)
     stats = db.get_stats()
     print("数据库统计:")
     print(f"  货架类型数: {stats['shelf_types']}")
     print(f"  货架组数量: {stats['shelf_groups']}")
+    print(f"  交付桌数量: {stats['delivery_tables']}")
     print(f"  SKU种类数:  {stats['sku_catalog']}")
-    print(f"  商品总数量: {stats['total_items']}")
+    print(f"  固定货位数: {stats['total_positions']}")
+    print(f"  当前商品数: {stats['actual_items']}")
+    print(f"  缺货数:     {stats['shortages']}")
+    print(f"  摆放错误数: {stats['misplacements']}")
 
     # 打印每个货架的摘要
     print("\n各货架商品摘要:")
