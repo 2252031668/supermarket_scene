@@ -22,7 +22,6 @@ DEFAULT_INSPECTION_CONFIG = {
     "ambiguity_margin": 0.05,
     "vlm_fallback": False,
     "vlm_top_k": 4,
-    "save_debug": True,
 }
 DEFAULT_SKU_QUERY_CONFIG = {
     "max_boxes": 1,
@@ -59,6 +58,9 @@ def get_inspection_config() -> dict[str, Any]:
     loaded = local_config().get("inspection", {})
     if not isinstance(loaded, dict):
         raise RuntimeError(str(LOCAL_CONFIG_PATH) + ": inspection must be a YAML mapping")
+    # save_debug belonged to the old persisted UI setting. Debug is now chosen
+    # by each caller because it changes execution work rather than recognition.
+    loaded = {key: value for key, value in loaded.items() if key != "save_debug"}
     return {**DEFAULT_INSPECTION_CONFIG, **loaded}
 
 

@@ -14,7 +14,6 @@ inspection:
   ambiguity_margin: 0.05
   vlm_fallback: false
   vlm_top_k: 4
-  save_debug: true
 
 sku_query:
   max_boxes: 1

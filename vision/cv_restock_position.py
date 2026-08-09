@@ -238,9 +238,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ambiguity-margin", type=float)
     parser.add_argument("--vlm-fallback", action="store_true")
     debug_group = parser.add_mutually_exclusive_group()
-    debug_group.add_argument("--save-debug", dest="save_debug", action="store_true")
-    debug_group.add_argument("--no-save-debug", dest="save_debug", action="store_false")
-    parser.set_defaults(save_debug=None)
+    debug_group.add_argument("--debug", dest="debug", action="store_true")
+    debug_group.add_argument("--no-debug", dest="debug", action="store_false")
+    parser.set_defaults(debug=True)
     return parser.parse_args()
 
 
@@ -567,12 +567,22 @@ def draw_analysis_roi(image: np.ndarray, roi: tuple[int, int, int, int], ratio: 
     return result
 
 
-def run_inspection(current_path: Path, config: dict[str, Any], output_dir: Path) -> dict[str, Any]:
-    """Inspect changed fixed slots and write a reviewable, read-only report."""
-    current_path = current_path.expanduser().resolve()
-    if not current_path.is_file():
-        raise ValueError(f"Current image not found: {current_path}")
-    output_dir.mkdir(parents=True, exist_ok=False)
+def run_inspection(current_source: Path | np.ndarray, config: dict[str, Any],
+                   output_dir: Path | None = None, debug: bool = True) -> dict[str, Any]:
+    """Inspect changed fixed slots, rendering a review run only when requested."""
+    if debug:
+        if output_dir is None:
+            raise ValueError("output_dir is required when debug is enabled")
+        output_dir.mkdir(parents=True, exist_ok=False)
+    if isinstance(current_source, np.ndarray):
+        current_image = current_source
+    else:
+        current_path = current_source.expanduser().resolve()
+        if not current_path.is_file():
+            raise ValueError(f"Current image not found: {current_path}")
+        current_image = read_bgr(current_path)
+    if current_image.size == 0:
+        raise ValueError("Current image could not be decoded")
     matching_args = SimpleNamespace(
         max_image_side=int(config.get("max_image_side", 1800)),
         feature=str(config.get("feature", "sift")),
@@ -583,7 +593,6 @@ def run_inspection(current_path: Path, config: dict[str, Any], output_dir: Path)
         min_inlier_ratio=float(config.get("min_inlier_ratio", 0.24)),
         min_current_coverage=float(config.get("min_current_coverage", 0.05)),
     )
-    current_image = read_bgr(current_path)
     match = find_best_match(current_image, matching_args)
     if match is None:
         raise RuntimeError("No matching calibrated shelf face found")
@@ -634,10 +643,11 @@ def run_inspection(current_path: Path, config: dict[str, Any], output_dir: Path)
             "source": "unchanged",
             "confidence": None,
             "reason": "unchanged",
-            "selected": False,
-            "difference_ratio": round(difference_ratio, 4),
             "bbox": {"x": box[0], "y": box[1], "width": box[2], "height": box[3]},
         }
+        if debug:
+            row["selected"] = False
+            row["difference_ratio"] = round(difference_ratio, 4)
         if changed:
             x, y, width, height = box
             crop_image = current[y:y + height, x:x + width]
@@ -672,14 +682,23 @@ def run_inspection(current_path: Path, config: dict[str, Any], output_dir: Path)
                     vlm_result,
                 )
             )
-            row["selected"] = row["status"] != "正常"
-            row["dino_matches"] = [
-                {"sku": sku, "confidence": round(score, 4)}
-                for sku, score in ranked[:int(config.get("vlm_top_k", 4))]
-            ]
+            if debug:
+                row["selected"] = row["status"] != "正常"
+                row["dino_matches"] = [
+                    {"sku": sku, "confidence": round(score, 4)}
+                    for sku, score in ranked[:int(config.get("vlm_top_k", 4))]
+                ]
             if row["status"] != "正常":
-                candidate_boxes.append({"bbox": row["bbox"], "sku": row["actual_sku"] or "缺货"})
+                if debug:
+                    candidate_boxes.append({"bbox": row["bbox"], "sku": row["actual_sku"] or "缺货"})
                 rows.append(row)
+
+    if not debug:
+        return {
+            "shelf_id": match["shelf_id"],
+            "face": match["face"],
+            "slots": rows,
+        }
 
     artifacts = {"result": "result.json", "result_overlay": "result_overlay.png"}
     cv2.imwrite(
@@ -690,39 +709,38 @@ def run_inspection(current_path: Path, config: dict[str, Any], output_dir: Path)
             (0, 165, 255),
         ),
     )
-    if bool(config.get("save_debug", True)):
-        cv2.imwrite(
-            str(output_dir / "aligned_reference.png"),
-            draw_analysis_roi(baseline, analysis_roi, analysis_center_ratio),
-        )
-        cv2.imwrite(
-            str(output_dir / "current_overlap.png"),
-            draw_analysis_roi(current, analysis_roi, analysis_center_ratio),
-        )
-        analysis_distance = np.zeros_like(distance)
-        analysis_distance[roi_y:roi_y + roi_height, roi_x:roi_x + roi_width] = distance[
-            roi_y:roi_y + roi_height, roi_x:roi_x + roi_width
-        ]
-        difference = cv2.applyColorMap(
-            cv2.convertScaleAbs(analysis_distance, alpha=255.0 / max(float(config.get("lab_distance_threshold", 12.0)) * 3, 1.0)),
-            cv2.COLORMAP_JET,
-        )
-        cv2.imwrite(
-            str(output_dir / "difference.png"),
-            draw_analysis_roi(difference, analysis_roi, analysis_center_ratio),
-        )
-        cv2.imwrite(
-            str(output_dir / "candidate_boxes.png"),
-            draw_boxes_on_image(
-                draw_analysis_roi(current, analysis_roi, analysis_center_ratio), candidate_boxes
-            ),
-        )
-        artifacts.update({
-            "aligned_reference": "aligned_reference.png",
-            "current_overlap": "current_overlap.png",
-            "difference": "difference.png",
-            "candidate_boxes": "candidate_boxes.png",
-        })
+    cv2.imwrite(
+        str(output_dir / "aligned_reference.png"),
+        draw_analysis_roi(baseline, analysis_roi, analysis_center_ratio),
+    )
+    cv2.imwrite(
+        str(output_dir / "current_overlap.png"),
+        draw_analysis_roi(current, analysis_roi, analysis_center_ratio),
+    )
+    analysis_distance = np.zeros_like(distance)
+    analysis_distance[roi_y:roi_y + roi_height, roi_x:roi_x + roi_width] = distance[
+        roi_y:roi_y + roi_height, roi_x:roi_x + roi_width
+    ]
+    difference = cv2.applyColorMap(
+        cv2.convertScaleAbs(analysis_distance, alpha=255.0 / max(float(config.get("lab_distance_threshold", 12.0)) * 3, 1.0)),
+        cv2.COLORMAP_JET,
+    )
+    cv2.imwrite(
+        str(output_dir / "difference.png"),
+        draw_analysis_roi(difference, analysis_roi, analysis_center_ratio),
+    )
+    cv2.imwrite(
+        str(output_dir / "candidate_boxes.png"),
+        draw_boxes_on_image(
+            draw_analysis_roi(current, analysis_roi, analysis_center_ratio), candidate_boxes
+        ),
+    )
+    artifacts.update({
+        "aligned_reference": "aligned_reference.png",
+        "current_overlap": "current_overlap.png",
+        "difference": "difference.png",
+        "candidate_boxes": "candidate_boxes.png",
+    })
 
     report = {
         "run_id": output_dir.name,
@@ -1014,13 +1032,12 @@ if __name__ == "__main__":
         config["ambiguity_margin"] = args.ambiguity_margin
     if args.vlm_fallback:
         config["vlm_fallback"] = True
-    if args.save_debug is not None:
-        config["save_debug"] = args.save_debug
     run_dir = args.output_dir.expanduser().resolve() / datetime.now().strftime("%Y%m%d_%H%M%S")
     try:
-        report = run_inspection(current_path, config, run_dir)
+        report = run_inspection(current_path, config, run_dir if args.debug else None, debug=args.debug)
     except (ValueError, RuntimeError) as error:
         raise SystemExit(f"Inspection failed: {error}") from error
     print(f"Inspected shelf {report['shelf_id']} face {report['face']}")
-    print(f"Changed slots: {sum(row['selected'] for row in report['slots'])}")
-    print(f"Report: {run_dir / 'result.json'}")
+    print(f"Changed slots: {len(report['slots'])}")
+    if args.debug:
+        print(f"Report: {run_dir / 'result.json'}")

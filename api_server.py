@@ -17,6 +17,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+import cv2
+import numpy as np
 from PIL import Image
 
 from vision.ark_grounding import build_prompt, extract_boxes, request_grounding_bytes
@@ -33,6 +35,7 @@ from vision.vlm_sku_query import run_vlm_sku_query
 from scene_geometry import delivery_table_spec
 from shelf_database import ShelfDatabase
 import calibration_manager
+import robot_service
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -97,14 +100,8 @@ def snapshot():
 
 def sync_shelf_projection(shelf_id, bbox_by_slot=None):
     """Rebuild one shelf's JSON cache after SQLite has committed."""
-    bbox_by_slot = bbox_by_slot or {}
     with JSON_SYNC_LOCK:
-        with ShelfDatabase(DB_PATH) as db:
-            slots = [asdict(slot) for slot in db.get_shelf_inventory(shelf_id)]
-        for slot in slots:
-            if slot["slot_id"] in bbox_by_slot:
-                slot["bbox"] = bbox_by_slot[slot["slot_id"]]
-        calibration_manager.sync_shelf_slots(shelf_id, slots)
+        robot_service.sync_shelf_projection(DB_PATH, shelf_id, bbox_by_slot)
 
 
 def read_optional_dimension(payload, name):
@@ -126,11 +123,18 @@ def read_optional_bbox(payload):
     }
 
 
+def read_debug(payload):
+    debug = payload.get("debug", False)
+    if not isinstance(debug, bool):
+        raise ValueError("debug must be a boolean")
+    return debug
+
+
 def inspection_config(payload):
     if not isinstance(payload, dict):
         raise ValueError("inspection config must be an object")
     config = get_inspection_config()
-    for key in ("min_current_coverage", "analysis_center_ratio", "lab_distance_threshold", "slot_change_ratio_threshold", "dino_confidence_threshold", "ambiguity_margin", "vlm_top_k", "vlm_fallback", "save_debug"):
+    for key in ("min_current_coverage", "analysis_center_ratio", "lab_distance_threshold", "slot_change_ratio_threshold", "dino_confidence_threshold", "ambiguity_margin", "vlm_top_k", "vlm_fallback"):
         if key in payload:
             config[key] = payload[key]
     try:
@@ -157,7 +161,7 @@ def inspection_config(payload):
         raise ValueError("ambiguity_margin must be at least 0")
     if not 1 <= config["vlm_top_k"] <= 9:
         raise ValueError("vlm_top_k must be between 1 and 9")
-    for key in ("vlm_fallback", "save_debug"):
+    for key in ("vlm_fallback",):
         if not isinstance(config[key], bool):
             raise ValueError(f"{key} must be a boolean")
     return config
@@ -651,18 +655,15 @@ class ApiHandler(BaseHTTPRequestHandler):
             raise ValueError("image_data must be a base64-encoded image")
         try:
             image_bytes = base64.b64decode(image_data.split(",", 1)[1], validate=True)
-            with Image.open(BytesIO(image_bytes)) as image:
-                image.verify()
-        except (ValueError, OSError, binascii.Error) as error:
+            current_image = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
+        except (ValueError, binascii.Error) as error:
             raise ValueError("image_data is not a valid image") from error
-        if not image_bytes or len(image_bytes) > 12 * 1024 * 1024:
+        if not image_bytes or len(image_bytes) > 12 * 1024 * 1024 or current_image is None:
             raise ValueError("Photo must be between 1 byte and 12 MB")
         config = inspection_config(payload.get("config", {}))
-        run_dir = vision_run_directory(uuid.uuid4().hex)
-        with tempfile.TemporaryDirectory(prefix="slot-inspection-") as temporary:
-            current_path = Path(temporary) / "current.png"
-            current_path.write_bytes(image_bytes)
-            report = run_inspection(current_path, config, run_dir)
+        debug = read_debug(payload)
+        run_dir = vision_run_directory(uuid.uuid4().hex) if debug else None
+        report = run_inspection(current_image, config, run_dir, debug=debug)
         self.send_json({"report": report}, HTTPStatus.CREATED)
 
     def _run_sku_query(self, payload):
@@ -692,19 +693,31 @@ class ApiHandler(BaseHTTPRequestHandler):
         if not model or len(model) > 200:
             raise ValueError("model must be between 1 and 200 characters")
         config = sku_query_config(payload.get("config", {}))
+        debug = read_debug(payload)
         sku, reference_slot_id, reference_path = sku_query_reference(query)
-        run_dir = sku_query_run_directory(uuid.uuid4().hex)
-        with tempfile.TemporaryDirectory(prefix="sku-query-") as temporary:
-            shelf_path = Path(temporary) / f"shelf{extension}"
-            shelf_path.write_bytes(image_bytes)
+        run_dir = sku_query_run_directory(uuid.uuid4().hex) if debug else None
+        if debug:
+            with tempfile.TemporaryDirectory(prefix="sku-query-") as temporary:
+                shelf_path = Path(temporary) / f"shelf{extension}"
+                shelf_path.write_bytes(image_bytes)
+                report = run_vlm_sku_query(
+                    sku, reference_path, shelf_path, provider, model, run_dir,
+                    max_boxes=config["max_boxes"],
+                    dino_fallback=config["dino_fallback"],
+                    dino_confidence_threshold=config["dino_confidence_threshold"],
+                    debug=True,
+                )
+        else:
             report = run_vlm_sku_query(
-                sku, reference_path, shelf_path, provider, model, run_dir,
+                sku, reference_path, image_bytes, provider, model,
                 max_boxes=config["max_boxes"],
                 dino_fallback=config["dino_fallback"],
                 dino_confidence_threshold=config["dino_confidence_threshold"],
+                debug=False,
             )
         report = {**report, "query": query, "reference_slot_id": reference_slot_id}
-        (run_dir / "result.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        if debug:
+            (run_dir / "result.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         self.send_json({"report": report}, HTTPStatus.CREATED)
 
     def _run_image_stitch(self, payload):

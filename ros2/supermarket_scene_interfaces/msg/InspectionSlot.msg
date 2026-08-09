@@ -1,0 +1,9 @@
+supermarket_scene_interfaces/Slot slot
+string source
+string reason
+bool has_confidence
+float64 confidence
+int32 x
+int32 y
+int32 width
+int32 height

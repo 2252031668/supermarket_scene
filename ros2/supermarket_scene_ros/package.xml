@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>supermarket_scene_ros</name>
+  <version>0.1.0</version>
+  <description>ROS2 service node for supermarket shelf operations.</description>
+  <maintainer email="maintainer@example.com">supermarket_scene</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>supermarket_scene_interfaces</depend>
+</package>

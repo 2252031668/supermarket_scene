@@ -1,0 +1,13 @@
+sensor_msgs/CompressedImage image
+string query
+---
+bool success
+string error
+string sku
+string reference_slot_id
+string provider
+string model
+string request_id
+float64 request_seconds
+float64 total_seconds
+supermarket_scene_interfaces/DetectedBox[] boxes

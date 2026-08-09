@@ -66,11 +66,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def image_data_url(path: Path, max_image_side: int) -> tuple[str, dict[str, int]]:
+def image_data_url(source: Path | bytes, max_image_side: int) -> tuple[str, dict[str, int]]:
     """Encode a bounded JPEG for lower visual-token and upload cost."""
-    with Image.open(path) as source:
-        source_width, source_height = source.size
-        rgba = source.convert("RGBA")
+    image_input = BytesIO(source) if isinstance(source, bytes) else source
+    with Image.open(image_input) as image_source:
+        source_width, source_height = image_source.size
+        rgba = image_source.convert("RGBA")
     canvas = Image.new("RGBA", rgba.size, "white")
     canvas.alpha_composite(rgba)
     image = canvas.convert("RGB")
@@ -321,13 +322,14 @@ def select_dino_boxes(
     return [box for box, _score in ranked[:max_results]]
 
 
-def dino_box_scores(target_path: Path, shelf_path: Path, boxes: list[BoundingBox]) -> list[float]:
+def dino_box_scores(target_path: Path, shelf_source: Path | bytes, boxes: list[BoundingBox]) -> list[float]:
     """Score only the VLM-proposed product crops; this deliberately does not run a full-image detector."""
     if not boxes:
         return []
     from vision.dino import reference_similarity_scores
 
-    with Image.open(target_path) as target, Image.open(shelf_path) as shelf:
+    shelf_input = BytesIO(shelf_source) if isinstance(shelf_source, bytes) else shelf_source
+    with Image.open(target_path) as target, Image.open(shelf_input) as shelf:
         reference = target.convert("RGB")
         shelf = shelf.convert("RGB")
         crops = [shelf.crop(box.pixels) for box in boxes]
@@ -337,17 +339,18 @@ def dino_box_scores(target_path: Path, shelf_path: Path, boxes: list[BoundingBox
 def run_vlm_sku_query(
     sku: str,
     target_path: Path,
-    shelf_path: Path,
+    shelf_source: Path | bytes,
     provider: str,
     model: str,
-    output_dir: Path,
+    output_dir: Path | None = None,
     max_tokens: int = 1024,
     max_image_side: int = 1280,
     max_boxes: int = 1,
     dino_fallback: bool = False,
     dino_confidence_threshold: float = 0.72,
+    debug: bool = True,
 ) -> dict[str, Any]:
-    """Locate one SKU on a shelf photo and persist a compact, web-readable run."""
+    """Locate one SKU, producing review artifacts only when debug is enabled."""
     if provider not in {"ark", "siliconflow", "dashscope"}:
         raise ValueError("provider must be ark, siliconflow, or dashscope")
     if max_tokens < 128 or max_image_side < 256 or not 1 <= max_boxes <= 20:
@@ -355,23 +358,27 @@ def run_vlm_sku_query(
     if not 0 <= dino_confidence_threshold <= 1:
         raise ValueError("dino_confidence_threshold must be between 0 and 1")
     target_path = target_path.expanduser().resolve()
-    shelf_path = shelf_path.expanduser().resolve()
-    for label, path in (("Target image", target_path), ("Shelf image", shelf_path)):
-        if not path.is_file():
-            raise ValueError(f"{label} not found: {path}")
-
-    output_dir.mkdir(parents=True, exist_ok=False)
+    if not target_path.is_file():
+        raise ValueError(f"Target image not found: {target_path}")
+    if isinstance(shelf_source, bytes):
+        if not shelf_source:
+            raise ValueError("Shelf image is empty")
+    else:
+        shelf_source = shelf_source.expanduser().resolve()
+        if not shelf_source.is_file():
+            raise ValueError(f"Shelf image not found: {shelf_source}")
+    if debug:
+        if output_dir is None:
+            raise ValueError("output_dir is required when debug is enabled")
+        output_dir.mkdir(parents=True, exist_ok=False)
     started = time.perf_counter()
     target_url, target_metadata = image_data_url(target_path, max_image_side)
-    shelf_url, shelf_metadata = image_data_url(shelf_path, max_image_side)
+    shelf_url, shelf_metadata = image_data_url(shelf_source, max_image_side)
     prompt = build_ark_prompt(sku, max_boxes) if provider == "ark" else build_qwen_prompt(sku, max_boxes)
     content = message_content(sku, target_url, shelf_url, prompt)
-    with Image.open(shelf_path) as shelf_image:
+    shelf_input = BytesIO(shelf_source) if isinstance(shelf_source, bytes) else shelf_source
+    with Image.open(shelf_input) as shelf_image:
         width, height = shelf_image.size
-    target_copy = output_dir / f"00_target_reference{target_path.suffix.lower()}"
-    shelf_copy = output_dir / f"01_shelf_source{shelf_path.suffix.lower()}"
-    shutil.copy2(target_path, target_copy)
-    shutil.copy2(shelf_path, shelf_copy)
 
     if provider == "ark":
         response = request_ark(content, model, max_tokens)
@@ -383,12 +390,31 @@ def run_vlm_sku_query(
     dino_scores: list[float] = []
     boxes = vlm_boxes[:max_boxes]
     if dino_fallback:
-        dino_scores = dino_box_scores(target_path, shelf_path, vlm_boxes)
+        dino_scores = dino_box_scores(target_path, shelf_source, vlm_boxes)
         boxes = select_dino_boxes(
             vlm_boxes, dino_scores,
             confidence_threshold=dino_confidence_threshold,
             max_results=max_boxes,
         )
+    if not debug:
+        return {
+            "sku": sku,
+            "provider": response.provider,
+            "model": response.model,
+            "request_id": response.request_id,
+            "request_seconds": response.request_seconds,
+            "total_seconds": time.perf_counter() - started,
+            "detected_boxes": [asdict(box) for box in boxes],
+        }
+
+    target_copy = output_dir / f"00_target_reference{target_path.suffix.lower()}"
+    shelf_suffix = shelf_source.suffix.lower() if isinstance(shelf_source, Path) else ".png"
+    shelf_copy = output_dir / f"01_shelf_source{shelf_suffix}"
+    shutil.copy2(target_path, target_copy)
+    if isinstance(shelf_source, bytes):
+        shelf_copy.write_bytes(shelf_source)
+    else:
+        shutil.copy2(shelf_source, shelf_copy)
     boxes, artifacts = provider_artifacts(output_dir, shelf_copy, response, width, height, sku, boxes)
     report = {
         "run_id": output_dir.name,

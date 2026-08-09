@@ -1,0 +1,9 @@
+string slot_id
+int32 shelf_id
+int32 face
+int32 level
+float64 y_cm
+string expected_sku
+bool has_actual_sku
+string actual_sku
+string status

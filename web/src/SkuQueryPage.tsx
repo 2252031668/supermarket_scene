@@ -56,7 +56,7 @@ export function SkuQueryPage({ state, onBack }: { state: WarehouseState; onBack:
     if (!query.trim()) { setNotice('请输入固定位置 ID 或 SKU'); return }
     setRunning(true); setNotice('正在调用 VLM 查询目标商品')
     try {
-      const result = await request<{ report: SkuQueryReport }>('/api/sku-query', { method: 'POST', body: JSON.stringify({ image_data: imageData, query: query.trim(), provider, model, config }) })
+      const result = await request<{ report: SkuQueryReport }>('/api/sku-query', { method: 'POST', body: JSON.stringify({ image_data: imageData, query: query.trim(), provider, model, config, debug: true }) })
       setReport(result.report)
       setNotice('查询完成，识别到 ' + result.report.detected_boxes.length + ' 个目标商品')
     } catch (error) { setNotice(error instanceof Error ? error.message : '货物查询失败') } finally { setRunning(false) }

@@ -1,0 +1,10 @@
+string name
+float64 world_x
+float64 world_y
+float64 yaw
+bool has_shelf_type_id
+int32 shelf_type_id
+---
+bool success
+string error
+int32 shelf_id

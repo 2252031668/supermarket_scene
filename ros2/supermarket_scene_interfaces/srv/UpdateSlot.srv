@@ -1,0 +1,10 @@
+string slot_id
+bool update_expected_sku
+string expected_sku
+bool update_actual_sku
+bool actual_sku_is_null
+string actual_sku
+---
+bool success
+string error
+supermarket_scene_interfaces/Slot slot

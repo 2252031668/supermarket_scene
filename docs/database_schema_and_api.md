@@ -248,54 +248,110 @@ SQLite 是唯一可写业务真源。`data/shelf_calibration/{shelf_id}.json` �
 
 ---
 
-## 三、API 完整清单
+## 三、HTTP JSON API
 
-巡检相关接口：
+`api_server.py` 默认监听 `127.0.0.1:8000`，请求和响应均为 UTF-8 JSON。URL 中的 `slot_id`、SKU 和 `run_id` 应进行 URL 编码。
 
-| 方法 | 路径 | 说明 |
+### 3.1 通用行为
+
+- `POST /api/vision/inspect` 和 `POST /api/sku-query` 的顶层 `debug` 默认为 `false`。
+- `debug=false` 直接返回生产结果，不创建运行目录、不绘制图片、不写结果 JSON 或 VLM 原文。
+- Web 显式传递 `debug=true`，才会生成 `run_id` 和 `vision/output/` 下的调试产物。
+- 视觉请求的 `image_data` 是 `data:image/jpeg;base64,...`、PNG 或 WebP Data URL，单张图片最大 12 MB。
+- 数据库写入成功后同步更新 `data/shelf_calibration/{shelf_id}.json`；该 JSON 是 CV 投影，不是独立业务真源。
+- HTTP 坐标接口返回 `world_x`、`world_y`、`world_z`，单位为米，坐标系为 `map`。HTTP 单 slot 坐标接口当前不返回 `shelf_yaw`；ROS2 直连服务会额外返回 `shelf_yaw` 和 `face`。
+
+### 3.2 路由清单
+
+#### GET
+
+| 路径 | 返回 | 说明 |
 |------|------|------|
-| GET | /api/vision/config | 返回 DINO 阈值、并列差值、Ark 保底和调试图开关，不返回 API 密钥 |
-| PUT | /api/vision/config | 校验并保存 vision/config.local.yaml 中的巡检配置 |
-| POST | /api/vision/inspect | 上传局部照片并生成只读巡检报告，不修改 SQLite |
-| GET | /api/vision/runs/{run_id}/result | 读取一次巡检的固定位置结果 |
-| GET | /api/vision/runs/{run_id}/artifact/{name} | 读取报告中登记的调试产物 |
-| POST | /api/vision/runs/{run_id}/apply | 仅应用请求中勾选且属于该报告的 slot ID，并同步 JSON |
+| `/api/health` | `{"ok": true}` | 服务健康检查 |
+| `/api/state` | 完整快照 | Web 使用，包含统计、货架、SKU、交付桌和所有 slot 世界坐标 |
+| `/api/vision/config` | 巡检配置对象 | 返回阈值和 Ark 保底配置，不返回密钥 |
+| `/api/sku-query/config` | SKU 查询配置对象 | 返回 `max_boxes`、DINO 保底和阈值 |
+| `/api/shortages` | `{"slots": [...]}` | `actual_sku IS NULL` 的位置，不含世界坐标 |
+| `/api/misplacements` | `{"slots": [...]}` | 实际 SKU 与预期 SKU 不同的位置，不含世界坐标 |
+| `/api/skus/{sku}/world-positions` | `{"sku", "positions"}` | 只返回 `actual_sku` 等于该 SKU 的有货位置 |
+| `/api/slots/{slot_id}/world-position` | `{"slot": {...}}` | 返回一个 slot 的库存字段和世界坐标 |
+| `/api/shelves/{shelf_id}/calibration` | 货架层位标定 | 返回货架长度、层板表面高度和开口高度 |
+| `/api/item-images/{slot_id}/0.png` | PNG 文件 | 读取固定位置参考商品裁剪图 |
+| `/api/shelf-images/{shelf_id}/{face}/0.png` | PNG 文件 | 读取货架面原图 |
+| `/api/vision/runs/{run_id}/result` | 巡检 `result.json` | 只用于 debug 巡检运行 |
+| `/api/vision/runs/{run_id}/artifact/{name}` | JSON 或 PNG | 读取巡检报告登记的调试产物 |
+| `/api/sku-query/runs/{run_id}/artifact/{name}` | JSON、文本或图片 | 读取 debug SKU 查询产物 |
+| `/api/image-stitch/runs/{run_id}/artifact/{name}` | PNG | 读取图片拼接产物 |
 
-巡检配置默认值：
+#### POST
 
-    inspection:
-      dino_confidence_threshold: 0.72
-      ambiguity_margin: 0.05
-      vlm_fallback: false
-      vlm_top_k: 4
-      save_debug: true
+| 路径 | 请求参数 | 返回 |
+|------|------|------|
+| `/api/shelves` | `name`、`world_x`、`world_y`、`yaw`、`shelf_type_id` 可选 | `{"id": shelf_id, "state": State}` |
+| `/api/delivery-tables` | `name`、`world_x`、`world_y`、`yaw` | `{"id": table_id, "state": State}` |
+| `/api/skus` | `sku`，可选 `category`、`mesh_file`、`tex_file` | `{"state": State}` |
+| `/api/slots` | `shelf_id`、`face`、`level`、`y_cm`、`expected_sku`；可选 `actual_sku`、尺寸、`bbox`、`image_dir` | `{"slot": Slot, "state": State}` |
+| `/api/slots/{slot_id}/take` | 空对象 `{}` | `{"slot": Slot, "state": State}`；实际 SKU 置空 |
+| `/api/slots/{slot_id}/restock` | 空对象 `{}` | `{"slot": Slot, "state": State}`；实际 SKU 恢复为预期 SKU |
+| `/api/imports/manual` | `items`、`new_skus`、`layers`、`shelf_image` | `{"slot_ids": [...], "state": State}` |
+| `/api/grounding/products` | `image_data` | `{"boxes": [...], "detected": number}` |
+| `/api/vision/inspect` | `image_data`、可选 `config`、`debug` | `{"report": InspectionReport}`，状态不写数据库 |
+| `/api/sku-query` | `image_data`、`query`、`provider`、`model`、可选 `config`、`debug` | `{"report": SkuQueryReport}` |
+| `/api/image-stitch` | `images`（2 至 8 张）、可选 `main_index` | `{"report": ImageStitchReport}` |
+| `/api/image-stitch/runs/{run_id}/rectify` | `points` 四点数组 | `{"report": ImageStitchReport}` |
+| `/api/vision/runs/{run_id}/apply` | `slot_ids` 非空字符串数组 | `{"slots": [...], "state": State}` |
 
-巡检结果先写入 vision/output/slot_inspection/{run_id}/result.json。低置信度且未开启 Ark 保底时，actual_sku 为 null；开启保底但 Ark 返回空位、无法解析或请求失败时，同样为 null。API 只允许应用报告中标记为可变更、且用户提交的 slot ID，更新成功后由数据库派生“正常、缺货、摆放错误”状态，再同步 data/shelf_calibration/{shelf_id}.json。
+#### PUT
 
-### HTTP JSON API (`api_server.py`)
+| 路径 | 请求参数 | 返回 |
+|------|------|------|
+| `/api/vision/config` | 巡检阈值和 `vlm_fallback` 等配置 | `{"inspection": config}` |
+| `/api/sku-query/config` | `max_boxes`、`dino_fallback`、`dino_confidence_threshold` | `{"sku_query": config}` |
+| `/api/shelf-types/{id}` | 10 个货架物理参数 | `{"state": State}` |
+| `/api/shelves/{id}` | 可选 `name`、`world_x`、`world_y`、`yaw`、`shelf_type_id` | `{"state": State}` |
+| `/api/delivery-tables/{id}` | 可选 `name`、`world_x`、`world_y`、`yaw` | `{"state": State}` |
+| `/api/slots/{slot_id}` | 可选 `expected_sku`、`actual_sku`、尺寸、`bbox`、`image_dir` | `{"slot": Slot, "state": State}` |
 
-| 方法 | 路径 | 返回值 | 说明 |
-|------|------|--------|------|
-| `GET` | `/api/state` | 完整数据库快照 | 网页手动刷新时读取；包含全部货位的世界坐标 |
-| `GET` | `/api/shortages` | `{slots}` | 缺货位置列表 |
-| `GET` | `/api/misplacements` | `{slots}` | 摆放错误位置列表 |
-| `GET` | `/api/skus/{sku}/world-positions` | `{sku, positions}` | 查询一个当前实际 SKU 的全部 `map` 世界坐标 |
-| `GET` | `/api/slots/{slot_id}/world-position` | `{slot}` | 按稳定位置 ID 查询 `map` 世界坐标 |
-| `POST` | `/api/slots` | `{slot, state}` | 创建固定货位；服务端生成 `slot_id` |
-| `PUT` | `/api/slots/{slot_id}` | `{slot, state}` | 更新 expected/actual SKU、尺寸或 bbox；拒绝位置字段 |
-| `POST` | `/api/slots/{slot_id}/take` | `{slot, state}` | 拿走商品，将 `actual_sku` 置空 |
-| `POST` | `/api/slots/{slot_id}/restock` | `{slot, state}` | 补货，将 `actual_sku` 设为 `expected_sku` |
-| `DELETE` | `/api/slots/{slot_id}` | `{deleted, state}` | 删除固定位置 |
-| `GET` | `/api/shelves/{id}/calibration` | 货架类型层位标定尺寸 | 返回货架长度、各层板表面高度与可用高度 |
-| `PUT` | `/api/shelf-types/{id}` | `{state}` | 更新货架类型的 10 个物理参数；拒绝使已关联商品落到层号或长度范围外的修改 |
-| `POST` | `/api/delivery-tables` | `{id, state}` | 新建交付桌，字段为 `name`、`world_x`、`world_y`、`yaw` |
-| `PUT` | `/api/delivery-tables/{id}` | `{state}` | 更新交付桌名称或位姿 |
-| `DELETE` | `/api/delivery-tables/{id}` | `{state}` | 删除交付桌；不影响库存 |
-| `POST` | `/api/imports/manual` | `{slot_ids, state}` | 人工照片标注审核后的批量事务导入，并保存每个实例的 `0.png` 裁剪图 |
+#### DELETE
 
-所有世界坐标字段为 `world_x`、`world_y`、`world_z`，单位为米，坐标系为本文件定义的右手 `map` 坐标系。
+| 路径 | 请求参数 | 返回 |
+|------|------|------|
+| `/api/shelves/{id}/inventory` | `scope=level/face/all`；按范围附带 `face`、`level` | `{"removed": number, "state": State}` |
+| `/api/delivery-tables/{id}` | 空对象 `{}` | `{"state": State}` |
+| `/api/shelves/{id}` | 空对象 `{}` | `{"removed": number, "state": State}` |
+| `/api/slots/{slot_id}` | 空对象 `{}` | `{"deleted": Slot, "state": State}` |
+| `/api/skus/{sku}` | 空对象 `{}` | `{"removed": sku, "state": State}` |
 
-### 3.1 货架面原图文件
+`State` 的完整字段为 `stats`、`shelf_types`、`shelves`、`shelf_images`、`delivery_tables`、`delivery_table_spec`、`skus`、`slots`。机器人生产调用不需要解析 `State`，应使用 [机器人 Web API](robot_web_api.md) 中的精简调用说明。
+
+### 3.3 视觉配置与结果
+
+巡检默认配置：
+
+```yaml
+inspection:
+  min_current_coverage: 0.05
+  analysis_center_ratio: 0.8
+  lab_distance_threshold: 12.0
+  slot_change_ratio_threshold: 0.15
+  dino_confidence_threshold: 0.72
+  ambiguity_margin: 0.05
+  vlm_fallback: false
+  vlm_top_k: 4
+```
+
+SKU 查询默认配置：
+
+```yaml
+sku_query:
+  max_boxes: 1
+  dino_fallback: false
+  dino_confidence_threshold: 0.72
+```
+
+未开启 Ark 保底时，DINO 低于置信度阈值会返回 `actual_sku=null`；开启后交给 Ark 判断，Ark 无法判断时同样按缺货处理。巡检结果只有在调用 `/api/vision/runs/{run_id}/apply` 后才会更新数据库；`debug=false` 没有运行记录，不能调用 `apply`。
+
+### 3.4 货架面原图文件
 
 人工批量导入确认时，会将上传的整面照片转换为 PNG 并写入受控目录，不增加独立数据表：
 
@@ -306,7 +362,7 @@ data/shelf_images/{shelf_id}/+x_0.png
 
 文件名中的 `-x` / `+x` 表示货架局部坐标面，分别对应 `face=0` / `face=1`；`0` 是当前唯一的面图。对同一货架面再次人工导入会替换该文件。`GET /api/state` 的 `shelf_images` 数组仅列出实际存在的面图，`GET /api/shelf-images/{shelf_id}/{face}/0.png` 可读取其 PNG。删除整个货架会一并清理该货架的图片目录。
 
-### 3.0 总览
+## 四、ShelfDatabase Python API 总览
 
 | 分类 | 方法数 | 涉及方法 |
 |------|--------|----------|
@@ -315,15 +371,16 @@ data/shelf_images/{shelf_id}/+x_0.png
 | 货架组管理 | 6 | `add_shelf_group`, `update_shelf_group`, `remove_shelf_group`, `get_shelf_group`, `get_all_shelf_groups`, `get_shelf_world_pos` |
 | 交付桌管理 | 5 | `add_delivery_table`, `update_delivery_table`, `remove_delivery_table`, `get_delivery_table`, `get_all_delivery_tables` |
 | SKU 目录管理 | 5 | `register_sku`, `register_skus_batch`, `get_sku_info`, `get_all_skus`, `remove_sku_from_catalog` |
-| 货位写入 | 7 | `create_slot`, `update_slot`, `take_slot`, `restock_slot`, `delete_slot`, `import_slots_batch`, `clear_shelf` |
-| 货位查询 | 8 | `get_slot_by_id`, `get_slot`, `get_all_slots`, `get_shelf_inventory`, `get_shortage_slots`, `get_misplaced_slots`, `find_sku_locations`, `find_expected_sku_locations` |
-| 坐标计算 | 4 | `get_slot_world_pos`, `get_all_slots_world`, `get_shelf_group_all_slots_world`, `slot_id_to_local`, `local_to_world` (静态) |
-| 工具方法 | 3 | `get_stats`, `slot_id_str_to_tuple`, `close` |
-| **合计** | **33** | |
+| 货位写入 | 11 | `create_slot`, `update_slot`, `set_actual_sku`, `set_actual_sku_batch`, `take_slot`, `restock_slot`, `import_slots_batch`, `delete_slot`, `clear_shelf`, `clear_shelf_face`, `clear_shelf_face_level` |
+| 货位查询 | 12 | `get_slot_by_id`, `get_slot`, `get_shelf_inventory`, `get_all_slots`, `get_shortage_slots`, `get_misplaced_slots`, `get_shelf_sku_summary`, `find_sku_locations`, `find_expected_sku_locations`, `find_sku_world_positions`, `get_sku_total_quantity`, `get_sku_total_quantity_by_shelf` |
+| 标定与世界坐标查询 | 4 | `get_shelf_calibration`, `get_slot_world_pos`, `get_all_slots_world`, `get_shelf_group_all_slots_world` |
+| 局部坐标计算 | 5 | `level_surface_z`, `face_center_x`, `level_opening_height`, `slot_id_to_local`, `local_to_world` (静态) |
+| 工具方法 | 4 | `format_slot_id`, `get_stats`, `slot_id_str_to_tuple`, `close` |
+| **合计** | **54** | 含初始化和模块级便捷函数；不含内部方法及上下文管理方法 |
 
 ---
 
-### 3.1 初始化
+### 4.1 初始化
 
 | API | 说明 |
 |-----|------|
@@ -331,7 +388,7 @@ data/shelf_images/{shelf_id}/+x_0.png
 
 ---
 
-### 3.2 货架类型管理 (shelf_types)
+### 4.2 货架类型管理 (shelf_types)
 
 | API | 签名 | 返回值 | 说明 |
 |-----|------|--------|------|
@@ -343,7 +400,7 @@ data/shelf_images/{shelf_id}/+x_0.png
 
 ---
 
-### 3.3 货架组管理 (shelf_groups)
+### 4.3 货架组管理 (shelf_groups)
 
 | API | 签名 | 返回值 | 说明 |
 |-----|------|--------|------|
@@ -356,7 +413,7 @@ data/shelf_images/{shelf_id}/+x_0.png
 
 ---
 
-### 3.4 SKU 目录管理 (sku_catalog)
+### 4.4 SKU 目录管理 (sku_catalog)
 
 | API | 签名 | 返回值 | 说明 |
 |-----|------|--------|------|
@@ -368,7 +425,7 @@ data/shelf_images/{shelf_id}/+x_0.png
 
 ---
 
-### 3.5 库存管理 — 写入 (shelf_inventory)
+### 4.5 库存管理 — 写入 (shelf_inventory)
 
 一个 slot = 一个固定货架位置。`slot_id` 和位置字段创建后保持不变。
 
@@ -376,6 +433,8 @@ data/shelf_images/{shelf_id}/+x_0.png
 |-----|------|------|
 | `create_slot` | `(shelf_id, face, level, y_cm, expected_sku, actual_sku=expected_sku, ...)` | 创建固定位置并返回稳定 `slot_id` |
 | `update_slot` | `(slot_id, **changes)` | 仅更新 expected/actual SKU、尺寸和图片目录 |
+| `set_actual_sku` | `(slot_id, actual_sku)` | 更新一个位置的实际 SKU，并自动派生状态 |
+| `set_actual_sku_batch` | `(changes)` | 在一个事务中批量更新实际 SKU |
 | `take_slot` | `(slot_id)` | 将 `actual_sku` 置空，固定位置不删除 |
 | `restock_slot` | `(slot_id)` | 将 `actual_sku` 恢复为 `expected_sku` |
 | `delete_slot` | `(slot_id)` | 删除固定位置 |
@@ -386,7 +445,7 @@ data/shelf_images/{shelf_id}/+x_0.png
 
 ---
 
-### 3.6 库存查询 (shelf_inventory)
+### 4.6 库存查询 (shelf_inventory)
 
 | API | 签名 | 返回值 | 说明 |
 |-----|------|--------|------|
@@ -404,22 +463,24 @@ data/shelf_images/{shelf_id}/+x_0.png
 
 ---
 
-### 3.7 坐标查询 (用于场景生成)
+### 4.7 标定与坐标查询
 
 | API | 签名 | 返回值 | 说明 |
 |-----|------|--------|------|
 | `get_slot_world_pos` | `(shelf_id, face, level, y_cm, height_cm=None)` | `Optional[WorldPos]` | 指定商品几何中心的世界坐标 |
 | `get_all_slots_world` | `()` | `List[Dict]` | 所有固定位置的世界坐标、双 SKU 和状态 |
 | `get_shelf_group_all_slots_world` | `(shelf_id)` | `List[Dict]` | 指定货架组所有固定位置的世界坐标 |
+| `get_shelf_calibration` | `(shelf_id)` | `Optional[Dict]` | 获取货架面照片标注所需的层高和开口尺寸 |
 
 ---
 
-### 3.8 坐标计算方法
+### 4.8 坐标计算方法
 
 | API | 签名 | 返回值 | 说明 |
 |-----|------|--------|------|
 | `level_surface_z(level, shelf_type=None)` | `(int, ShelfType?)` | `float` | 指定层的层板上表面 Z 坐标 (局部, 单位: 米) |
 | `face_center_x(face, level, shelf_type=None)` | `(int, int, ShelfType?)` | `float` | 指定面/层的层板中心 X 坐标 (局部, 单位: 米) |
+| `level_opening_height(level, shelf_type=None)` | `(int, ShelfType?)` | `float` | 指定层可用于照片标定的开口高度 (局部, 单位: 米) |
 | `slot_id_to_local(shelf_id, face, level, y_cm, height_cm=None)` | `(int, int, int, float, float?)` | `LocalPos` | 槽位 → 局部坐标；Z 为层板表面加 `height_cm / 2` |
 | `local_to_world(local, world_x, world_y, yaw)` | `(LocalPos, float, float, float)` | `WorldPos` | 局部坐标 → 世界坐标 (静态方法) |
 
@@ -427,7 +488,7 @@ data/shelf_images/{shelf_id}/+x_0.png
 
 ---
 
-### 3.9 其他工具方法
+### 4.9 其他工具方法
 
 | API | 签名 | 返回值 | 说明 |
 |-----|------|--------|------|
@@ -438,7 +499,7 @@ data/shelf_images/{shelf_id}/+x_0.png
 
 ---
 
-### 3.10 模块级便捷函数
+### 4.10 模块级便捷函数
 
 | 函数 | 说明 |
 |------|------|
@@ -446,11 +507,11 @@ data/shelf_images/{shelf_id}/+x_0.png
 
 ---
 
-## 四、数据类 (Dataclass)
+## 五、数据类 (Dataclass)
 
 | 类名 | 字段 | 说明 |
 |------|------|------|
-| `ShelfType` | `id, name, shelf_length, shelf_width, shelf_height, num_levels, bottom_clearance, level_spacing, panel_thick, back_thick, shelf_depth_normal, shelf_depth_bottom` | 货架类型物理参数 (10字段) |
+| `ShelfType` | `id, name, shelf_length, shelf_width, shelf_height, num_levels, bottom_clearance, level_spacing, panel_thick, back_thick, shelf_depth_normal, shelf_depth_bottom` | 货架类型标识及 10 个物理参数 |
 | `ShelfGroup` | `id, name, world_x, world_y, yaw, shelf_type_id, created_at` | 货架组信息 |
 | `SkuInfo` | `sku, category, mesh_file, tex_file` | SKU 信息 |
 | `ShelfSlot` | `slot_id, shelf_id, face, level, y_cm, expected_sku, actual_sku, width_cm, height_cm, image_dir, status` | 固定位置、当前内容和派生状态 |
@@ -459,18 +520,24 @@ data/shelf_images/{shelf_id}/+x_0.png
 
 ---
 
-## 五、当前数据规模
+## 六、当前数据规模
+
+以下是仓库当前 `shelf_inventory.db` 的快照；数据库继续变化时，以 `GET /api/state` 或 `ShelfDatabase.get_stats()` 为准。
 
 | 项目 | 数量 |
 |------|------|
 | 货架类型 | 1 ("standard") |
 | 货架组 | 4 |
-| SKU 种类 | 19 (11 YCB + 8 scanned) |
-| 当前固定位置 | 以 `get_stats().total_positions` 为准 |
+| 交付桌 | 4 |
+| SKU 种类 | 22 |
+| 当前固定位置 | 35 |
+| 当前有货位置 | 35 |
+| 当前缺货位置 | 0 |
+| 当前错放位置 | 0 |
 
 ---
 
-## 六、使用示例
+## 七、使用示例
 
 ```python
 from shelf_database import (ShelfDatabase, ShelfType,

@@ -80,7 +80,6 @@ export type VisionConfig = {
   ambiguity_margin: number
   vlm_fallback: boolean
   vlm_top_k: number
-  save_debug: boolean
 }
 
 export type VisionInspectionRow = {

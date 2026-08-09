@@ -1,0 +1,13 @@
+int32 shelf_id
+int32 face
+int32 level
+float64 y_cm
+string expected_sku
+bool has_actual_sku
+string actual_sku
+float64 width_cm
+float64 height_cm
+---
+bool success
+string error
+supermarket_scene_interfaces/Slot slot

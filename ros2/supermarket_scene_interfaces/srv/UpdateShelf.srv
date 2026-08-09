@@ -1,0 +1,13 @@
+int32 shelf_id
+bool update_name
+string name
+bool update_pose
+float64 world_x
+float64 world_y
+float64 yaw
+bool update_shelf_type_id
+bool has_shelf_type_id
+int32 shelf_type_id
+---
+bool success
+string error

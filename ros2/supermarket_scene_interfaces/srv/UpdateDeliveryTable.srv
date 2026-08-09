@@ -1,0 +1,10 @@
+int32 table_id
+bool update_name
+string name
+bool update_pose
+float64 world_x
+float64 world_y
+float64 yaw
+---
+bool success
+string error

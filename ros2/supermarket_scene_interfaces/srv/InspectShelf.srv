@@ -1,0 +1,7 @@
+sensor_msgs/CompressedImage image
+---
+bool success
+string error
+int32 shelf_id
+int32 face
+supermarket_scene_interfaces/InspectionSlot[] anomalies

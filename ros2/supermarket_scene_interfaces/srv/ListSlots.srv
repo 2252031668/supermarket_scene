@@ -1,0 +1,5 @@
+---
+bool success
+string error
+uint32 count
+supermarket_scene_interfaces/SlotPose[] slots

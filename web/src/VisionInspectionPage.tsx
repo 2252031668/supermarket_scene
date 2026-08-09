@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, CheckSquare, Images, LoaderCircle, Play, Save, ScanLine, Square, Upload } from 'lucide-react'
 import type { VisionConfig, VisionInspectionReport, WarehouseState } from './types'
 
-const defaultConfig: VisionConfig = { min_current_coverage: 0.05, analysis_center_ratio: 0.8, lab_distance_threshold: 12, slot_change_ratio_threshold: 0.15, dino_confidence_threshold: 0.72, ambiguity_margin: 0.05, vlm_fallback: false, vlm_top_k: 4, save_debug: true }
+const defaultConfig: VisionConfig = { min_current_coverage: 0.05, analysis_center_ratio: 0.8, lab_distance_threshold: 12, slot_change_ratio_threshold: 0.15, dino_confidence_threshold: 0.72, ambiguity_margin: 0.05, vlm_fallback: false, vlm_top_k: 4 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) } })
@@ -48,7 +48,7 @@ export function VisionInspectionPage({ onBack, onApplied }: { onBack: () => void
     if (!imageData) { setNotice('请先选择局部货架图片'); return }
     setRunning(true); setNotice('正在配准图片并识别异常货位')
     try {
-      const result = await request<{ report: VisionInspectionReport }>('/api/vision/inspect', { method: 'POST', body: JSON.stringify({ image_data: imageData, config }) })
+      const result = await request<{ report: VisionInspectionReport }>('/api/vision/inspect', { method: 'POST', body: JSON.stringify({ image_data: imageData, config, debug: true }) })
       setReport(result.report)
       setShowDebug(false)
       setNotice('识别完成，共有 ' + result.report.slots.filter((row) => row.selected).length + ' 个待应用结果')
@@ -96,7 +96,6 @@ export function VisionInspectionPage({ onBack, onApplied }: { onBack: () => void
         <label className="inspection-field"><span>DINO 置信度 {config.dino_confidence_threshold.toFixed(2)}</span><input type="range" min="0.4" max="0.99" step="0.01" value={config.dino_confidence_threshold} onChange={(event) => setConfig({ ...config, dino_confidence_threshold: Number(event.target.value) })} /></label>
         <label className="inspection-field"><span>并列差值 {config.ambiguity_margin.toFixed(2)}</span><input type="range" min="0" max="0.3" step="0.01" value={config.ambiguity_margin} onChange={(event) => setConfig({ ...config, ambiguity_margin: Number(event.target.value) })} /></label>
         <label className="empty-position-toggle"><input type="checkbox" checked={config.vlm_fallback} onChange={(event) => setConfig({ ...config, vlm_fallback: event.target.checked })} />Ark VLM 保底</label>
-        <label className="empty-position-toggle"><input type="checkbox" checked={config.save_debug} onChange={(event) => setConfig({ ...config, save_debug: event.target.checked })} />Debug 模式</label>
         <button className="secondary-button" onClick={() => void saveConfig()}><Save size={15} />保存配置</button>
         <button className="ai-grounding-button" disabled={running || !imageData} onClick={() => void run()}>{running ? <LoaderCircle size={16} className="spin" /> : <Play size={16} />}运行识别</button>
       </aside>

@@ -1,0 +1,7 @@
+string sku
+---
+bool success
+string error
+string sku
+uint32 count
+supermarket_scene_interfaces/SlotPose[] positions

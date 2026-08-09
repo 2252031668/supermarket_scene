@@ -1,0 +1,5 @@
+string slot_id
+---
+bool success
+string error
+supermarket_scene_interfaces/SlotPose slot
