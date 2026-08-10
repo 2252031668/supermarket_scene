@@ -117,6 +117,8 @@ export function ManualImportPage({ state, onBack, onImported, initialImageUrl }:
   const [importing, setImporting] = useState(false)
   const [aiRunning, setAiRunning] = useState(false)
   const [aiStatus, setAiStatus] = useState('')
+  const [skuPrompts, setSkuPrompts] = useState<Record<string, string>>({})
+  const [promptRunning, setPromptRunning] = useState(false)
 
   const shelf = state.shelves.find((item) => item.id === shelfId)
   const shelfType = state.shelf_types.find((item) => item.id === shelf?.shelf_type_id) ?? state.shelf_types[0]
@@ -151,6 +153,11 @@ export function ManualImportPage({ state, onBack, onImported, initialImageUrl }:
   }), [products, layers, shelfType, shelfId, face])
 
   const duplicateIds = useMemo(() => new Set(derivedItems.filter((item, index, items) => item.slot_id && items.findIndex((other) => other.slot_id === item.slot_id) !== index).map((item) => item.slot_id)), [derivedItems])
+  const promptRows = useMemo(() => Array.from(new Set(products.flatMap((item) => [item.expected_sku, item.actual_sku].filter((name): name is string => Boolean(name && name !== UNKNOWN_SKU))))).sort().map((sku) => ({
+    sku,
+    samples: products.filter((item) => item.expected_sku === sku && item.actual_sku === sku).sort((left, right) => right.width * right.height - left.width * left.height).slice(0, 3).map((item) => item.crop_png),
+  })), [products])
+  const promptValue = (sku: string) => skuPrompts[sku] ?? state.skus.find((item) => item.sku === sku)?.owlv2_prompt ?? ''
 
   const updateProduct = (id: string, patch: Partial<ProductBox>) => setProducts((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item))
   const updateProductBox = (id: string, box: Pick<ProductBox, 'x' | 'y' | 'width' | 'height'>) => {
@@ -277,6 +284,7 @@ export function ManualImportPage({ state, onBack, onImported, initialImageUrl }:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           new_skus: requiredNewSkus.map((name) => ({ sku: name })),
+          sku_prompts: promptRows.map((item) => ({ sku: item.sku, owlv2_prompt: promptValue(item.sku) })),
           shelf_image: { shelf_id: shelfId, face, image_data: image.dataUrl },
           layers: layersPayload, // <--- NEW: Add calibration layers
           items: derivedItems.map((item) => ({
@@ -299,6 +307,21 @@ export function ManualImportPage({ state, onBack, onImported, initialImageUrl }:
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '导入失败')
     } finally { setImporting(false) }
+  }
+
+  const draftOwlPrompts = async () => {
+    const requests = promptRows.filter((item) => !promptValue(item.sku).trim() && item.samples.length).map((item) => ({ sku: item.sku, images: item.samples }))
+    if (!requests.length) { setNotice('没有可生成的空白提示词；每个 SKU 至少需要一个正常商品裁剪图。'); return }
+    setPromptRunning(true)
+    try {
+      const response = await fetch('/api/sku-prompts/owlv2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requests }) })
+      const body = await response.json() as { error?: string; drafts?: { sku: string; owlv2_prompt: string }[] }
+      if (!response.ok) throw new Error(body.error ?? '提示词生成失败')
+      setSkuPrompts((current) => ({ ...current, ...(body.drafts ?? []).reduce<Record<string, string>>((next, item) => ({ ...next, [item.sku]: item.owlv2_prompt }), {}) }))
+      setNotice('已生成 OWLv2 提示词草稿，请逐项审核后再导入。')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '提示词生成失败')
+    } finally { setPromptRunning(false) }
   }
 
   const selectMode = (mode: ToolMode) => {
@@ -335,6 +358,6 @@ export function ManualImportPage({ state, onBack, onImported, initialImageUrl }:
         </svg>}
       </section>
     </section>
-    {step === 4 && <section className="review-band"><div className="review-heading"><div><span>导入审核表</span><strong>{derivedItems.length} 个固定货位</strong></div><button className="primary-button" disabled={importing || !derivedItems.length || Boolean(duplicateIds.size) || derivedItems.some((item) => item.error)} onClick={() => void importItems()}>{importing ? '正在导入' : '确认批量导入'}</button></div><div className="review-table-wrap"><table className="review-table"><thead><tr><th>0.png</th><th>位置 ID</th><th>应摆 SKU</th><th>实际 SKU</th><th>面 / 层</th><th>Y 中心</th><th>宽 / 高</th><th>状态</th><th></th></tr></thead><tbody>{derivedItems.map((item) => <tr key={item.id}><td><img src={item.crop_png} alt={`${item.expected_sku} 货位裁剪图`} /></td><td><code>{item.slot_id || '-'}</code></td><td><select value={item.expected_sku} onChange={(event) => updateProduct(item.id, { expected_sku: event.target.value })}>{allSkus.map((name) => <option key={name} value={name}>{name}</option>)}</select></td><td><select value={item.actual_sku ?? ''} onChange={(event) => updateProduct(item.id, { actual_sku: event.target.value || null })}><option value="">空</option>{allSkus.map((name) => <option key={name} value={name}>{name}</option>)}</select></td><td>{face === 0 ? '-X' : '+X'} / {item.level}</td><td><input value={item.y_cm} onChange={(event) => updateProduct(item.id, { yOverride: Number(event.target.value) })} /></td><td><span className="dimension-input"><input value={item.width_cm} onChange={(event) => updateProduct(item.id, { widthOverride: Number(event.target.value) })} /><input value={item.height_cm} onChange={(event) => updateProduct(item.id, { heightOverride: Number(event.target.value) })} /></span></td><td>{item.error ? <span className="row-error">{item.error}</span> : duplicateIds.has(item.slot_id) ? <span className="row-error">ID 重复</span> : <span className={`status-badge status-${slotStatus(item.expected_sku, item.actual_sku)}`}>{slotStatus(item.expected_sku, item.actual_sku)}</span>}</td><td><button className="icon-button" title="编辑货位" onClick={() => { setSelectedProductId(item.id); setToolMode('edit'); setStep(3) }}><PencilRuler size={15} /></button><button className="icon-button" title="移除货位" onClick={() => setProducts((current) => current.filter((product) => product.id !== item.id))}><Trash2 size={15} /></button></td></tr>)}</tbody></table></div></section>}
+    {step === 4 && <section className="review-band"><div className="review-heading"><div><span>导入审核表</span><strong>{derivedItems.length} 个固定货位</strong></div><button className="primary-button" disabled={importing || !derivedItems.length || Boolean(duplicateIds.size) || derivedItems.some((item) => item.error)} onClick={() => void importItems()}>{importing ? '正在导入' : '确认批量导入'}</button></div><div className="sku-prompt-review"><div><strong>OWLv2 商品提示词</strong><small>按 SKU 聚合；仅正常裁剪图会用于生成草稿。</small></div><button className="secondary-button" disabled={promptRunning || !promptRows.some((item) => !promptValue(item.sku).trim() && item.samples.length)} onClick={() => void draftOwlPrompts()}>{promptRunning ? '正在生成' : 'AI 一键编写'}</button>{promptRows.map((item) => <label key={item.sku}><span>{item.sku}</span><input value={promptValue(item.sku)} placeholder={item.samples.length ? '可生成英文提示词' : '无正常裁剪图，请手工填写'} onChange={(event) => setSkuPrompts((current) => ({ ...current, [item.sku]: event.target.value }))} /><small>{item.samples.length} 张正常样本</small></label>)}</div><div className="review-table-wrap"><table className="review-table"><thead><tr><th>0.png</th><th>位置 ID</th><th>应摆 SKU</th><th>实际 SKU</th><th>面 / 层</th><th>Y 中心</th><th>宽 / 高</th><th>状态</th><th></th></tr></thead><tbody>{derivedItems.map((item) => <tr key={item.id}><td><img src={item.crop_png} alt={`${item.expected_sku} 货位裁剪图`} /></td><td><code>{item.slot_id || '-'}</code></td><td><select value={item.expected_sku} onChange={(event) => updateProduct(item.id, { expected_sku: event.target.value })}>{allSkus.map((name) => <option key={name} value={name}>{name}</option>)}</select></td><td><select value={item.actual_sku ?? ''} onChange={(event) => updateProduct(item.id, { actual_sku: event.target.value || null })}><option value="">空</option>{allSkus.map((name) => <option key={name} value={name}>{name}</option>)}</select></td><td>{face === 0 ? '-X' : '+X'} / {item.level}</td><td><input value={item.y_cm} onChange={(event) => updateProduct(item.id, { yOverride: Number(event.target.value) })} /></td><td><span className="dimension-input"><input value={item.width_cm} onChange={(event) => updateProduct(item.id, { widthOverride: Number(event.target.value) })} /><input value={item.height_cm} onChange={(event) => updateProduct(item.id, { heightOverride: Number(event.target.value) })} /></span></td><td>{item.error ? <span className="row-error">{item.error}</span> : duplicateIds.has(item.slot_id) ? <span className="row-error">ID 重复</span> : <span className={`status-badge status-${slotStatus(item.expected_sku, item.actual_sku)}`}>{slotStatus(item.expected_sku, item.actual_sku)}</span>}</td><td><button className="icon-button" title="编辑货位" onClick={() => { setSelectedProductId(item.id); setToolMode('edit'); setStep(3) }}><PencilRuler size={15} /></button><button className="icon-button" title="移除货位" onClick={() => setProducts((current) => current.filter((product) => product.id !== item.id))}><Trash2 size={15} /></button></td></tr>)}</tbody></table></div></section>}
   </main>
 }

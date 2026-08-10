@@ -27,6 +27,7 @@ DEFAULT_SKU_QUERY_CONFIG = {
     "max_boxes": 1,
     "dino_fallback": False,
     "dino_confidence_threshold": 0.72,
+    "owlv2_score_threshold": 0.10,
 }
 
 

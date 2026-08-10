@@ -173,7 +173,7 @@ supermarket_scene_interfaces/DetectedBox[] boxes
 /supermarket_scene/find_sku
 ```
 
-`query` 可以是已有 SKU，也可以是已有 `slot_id`。服务端使用该 SKU 或 slot 的参考商品图。返回的 `boxes` 是最终保留的框，不返回原始 VLM 文本和调试图片。
+`query` 可以是已有 SKU，也可以是已有 `slot_id`。输入 `slot_id` 时直接使用该位置的参考图；输入 SKU 时优先选择 `expected_sku == actual_sku == query` 且已有裁剪图的正常 slot，再按 `slot_id` 选择，无正常样本才回退到其他有图的应摆 slot。返回的 `boxes` 是最终保留的框，不返回原始 VLM 文本和调试图片。节点参数 `provider=local` 时固定使用 `google/owlv2-large-patch14-ensemble` 和该 SKU 已审核的 `owlv2_prompt`；空提示词会返回 `success=false`。`sku_query.dino_fallback` 是节点级 DINO 保底开关，不是单次服务字段：关闭时直接返回 OWLv2 前 `sku_query.max_boxes` 个框，开启时由 DINO 对全部 OWLv2 候选排序后返回前 `max_boxes` 个。本地路径的 `DetectedBox.confidence` 优先返回 DINO 复核分数，否则返回 OWLv2 分数。
 
 ## 坐标与状态查询服务
 
@@ -403,8 +403,8 @@ supermarket_scene_interfaces/Slot slot
 
 ```text
 api_url                         默认不需要，ROS 节点直接调用共享业务层
-provider                        ark
-model                           由启动参数指定
+provider                        ark 或 local
+model                           云端 VLM 模型；provider=local 时忽略
 inspection.min_current_coverage 0.05
 inspection.analysis_center_ratio 0.8
 inspection.lab_distance_threshold 12.0
@@ -414,8 +414,9 @@ inspection.ambiguity_margin 0.05
 inspection.vlm_fallback false
 inspection.vlm_top_k 4
 sku_query.max_boxes 1
-sku_query.dino_fallback false
+sku_query.dino_fallback false（本地 OWLv2 候选是否使用 DINO 保底复核）
 sku_query.dino_confidence_threshold 0.72
+sku_query.owlv2_score_threshold 0.10
 ```
 
 视觉服务如果失败，返回 `success=false` 和具体 `error`，不把异常伪装成缺货。只有视觉算法成功判断某个位置为缺货时，才在 `anomalies` 中返回“缺货”。

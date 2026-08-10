@@ -51,6 +51,7 @@ import robot_service
 from shelf_database import ShelfDatabase
 from vision.config import get_inspection_config, get_sku_query_config
 from vision.dino import preload_dino
+from vision.owlv2 import preload_owlv2
 
 
 class SupermarketSceneNode(Node):
@@ -177,6 +178,10 @@ class SupermarketSceneNode(Node):
                 setattr(response, key, report.get(key) or "")
             response.request_seconds = report.get("request_seconds", 0.0)
             response.total_seconds = report.get("total_seconds", 0.0)
+            scores = {
+                row["index"]: row["confidence"]
+                for row in (report.get("dino_scores") or report.get("owlv2_scores") or [])
+            }
             for index, box in enumerate(report.get("detected_boxes", []), start=1):
                 item = DetectedBox()
                 item.index = index
@@ -184,7 +189,11 @@ class SupermarketSceneNode(Node):
                 x1, y1, x2, y2 = box["pixels"]
                 item.x, item.y = x1, y1
                 item.width, item.height = x2 - x1, y2 - y1
-                item.has_confidence = False
+                if box.get("index") in scores:
+                    item.confidence = scores[box["index"]]
+                    item.has_confidence = True
+                else:
+                    item.has_confidence = False
                 response.boxes.append(item)
             return response
         except Exception as error:
@@ -339,10 +348,10 @@ class SupermarketSceneNode(Node):
 def main(args=None) -> None:
     rclpy.init(args=args)
     preload_dino()
+    preload_owlv2()
     node = SupermarketSceneNode()
     try:
         rclpy.spin(node)
     finally:
         node.destroy_node()
         rclpy.shutdown()
-

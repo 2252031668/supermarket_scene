@@ -9,6 +9,7 @@ import calibration_manager
 from shelf_database import ShelfDatabase
 from vision.config import get_inspection_config, get_sku_query_config
 from vision.cv_restock_position import run_inspection
+from vision.owlv2 import run_owlv2_sku_query
 from vision.vlm_sku_query import run_vlm_sku_query
 
 
@@ -148,10 +149,10 @@ def _sku_reference(db_path: str, query: str) -> tuple[str, str, Path]:
         if slot is not None:
             candidates = [slot]
         elif db.get_sku_info(query) is not None:
-            candidates = [
-                item for item in db.get_all_slots()
-                if item.expected_sku == query
-            ]
+            candidates = sorted(
+                (item for item in db.get_all_slots() if item.expected_sku == query),
+                key=lambda item: (item.actual_sku != query, item.slot_id),
+            )
         else:
             raise ValueError("Query must be an existing slot ID or SKU")
     for slot in candidates:
@@ -171,17 +172,24 @@ def find_sku(
 ) -> dict[str, Any]:
     sku, reference_slot_id, reference_path = _sku_reference(db_path, query.strip())
     options = config or get_sku_query_config()
-    report = run_vlm_sku_query(
-        sku,
-        reference_path,
-        image_bytes,
-        provider,
-        model,
-        max_boxes=int(options["max_boxes"]),
-        dino_fallback=bool(options["dino_fallback"]),
-        dino_confidence_threshold=float(options["dino_confidence_threshold"]),
-        debug=False,
-    )
+    if provider == "local":
+        with _database(db_path) as db:
+            sku_info = db.get_sku_info(sku)
+        if sku_info is None or not sku_info.owlv2_prompt:
+            raise ValueError(f"SKU {sku} has no owlv2_prompt; review it before local querying")
+        report = run_owlv2_sku_query(
+            sku, sku_info.owlv2_prompt, reference_path, image_bytes,
+            max_boxes=int(options["max_boxes"]),
+            owlv2_score_threshold=float(options["owlv2_score_threshold"]),
+            dino_fallback=bool(options["dino_fallback"]),
+            dino_confidence_threshold=float(options["dino_confidence_threshold"]), debug=False,
+        )
+    else:
+        report = run_vlm_sku_query(
+            sku, reference_path, image_bytes, provider, model,
+            max_boxes=int(options["max_boxes"]), dino_fallback=bool(options["dino_fallback"]),
+            dino_confidence_threshold=float(options["dino_confidence_threshold"]), debug=False,
+        )
     return {
         **report,
         "query": query,

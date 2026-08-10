@@ -103,6 +103,16 @@ cp vision/config.example.yaml vision/config.local.yaml
 uv run python api_server.py
 ```
 
+首次启动会下载并加载 DINOv2 与 OWLv2 权重；本地 OWLv2 查询固定使用 `google/owlv2-large-patch14-ensemble`。
+
+`Qwen/Qwen3.5-9B` 目前只提供本地权重下载脚本，尚未接入查询路径：
+
+```bash
+uv run python vision/download_qwen35_modelscope.py
+```
+
+脚本使用 ModelScope Python SDK 直连下载到 `vision/models/Qwen3.5-9B`，支持断点续传。
+
 在另一个终端启动网页：
 
 ```bash
@@ -115,9 +125,9 @@ npm run dev
 ## Web 功能
 
 - **货架管理**：维护货架、交付桌、SKU 和固定货位，提供 2D/3D 视图。
-- **人工批量录入**：标定货架面、框选已有商品或空位，填写 `expected_sku` 与 `actual_sku` 后批量写入。
+- **人工批量录入**：标定货架面、框选已有商品或空位，填写 `expected_sku` 与 `actual_sku` 后批量写入；导入审核可按 SKU 用最多三张最大正常裁剪图生成并编辑 OWLv2 英文自由文本对象描述。
 - **巡检识别**：上传局部货架照片，先用 SIFT 配准和 Lab 色彩距离筛选货位异常，再以 DINOv2 识别 SKU；可选 Ark VLM 保底。结果仅在点击“应用修改”后才更新数据库和 JSON。
-- **货物查询**：按 SKU 或固定位置查询局部照片中的目标货物，使用 Ark VLM 定位，并可选 DINOv2 复核候选框。
+- **货物查询**：按 SKU 或固定位置查询局部照片中的目标货物，可使用 Ark 等 VLM，或本地 `google/owlv2-large-patch14-ensemble` 英文对象描述检索；输入 SKU 时优先选取正常 slot 的参考裁剪图，两条路径都可选 DINOv2 复核候选框。
 - **图片拼接**：上传同一货架面的 2 至 8 张重叠照片，手工选择主平面。后端对所有图片两两进行 SIFT/MAGSAC 匹配，拼接主图所在的可靠连通组；再用 GraphCut 接缝选择和三层多频段融合输出拼接图。结果可四点透视校正后下载，或直接送到人工批量录入。
 
 Web 对巡检和 SKU 查询固定传递 `debug: true`，结果保存在 `vision/output/`：巡检为 `slot_inspection/{run_id}/`，SKU 查询为 `vlm_sku_query/{run_id}/`，图片拼接为 `image_stitch/{run_id}/`。这些都是可删除的运行产物。其他 HTTP/ROS2 调用不传或传递 `debug: false` 时，巡检和 SKU 查询直接返回结果，不创建运行目录、不绘制图像或写入中间文件。
@@ -139,7 +149,7 @@ export SUPERMARKET_SCENE_ROOT=/path/to/supermarket_scene
 ros2 run supermarket_scene_ros supermarket_scene_node
 ```
 
-节点启动时预加载 DINOv2。Ark 等远程 VLM 仍读取仓库根目录的 `vision/config.local.yaml` 或对应环境变量。
+节点启动时预加载 DINOv2 和 OWLv2。Ark 等远程 VLM 仍读取仓库根目录的 `vision/config.local.yaml` 或对应环境变量；节点参数 `provider=local` 时仅使用已审核的 `owlv2_prompt`，不需要云端 API Key。`sku_query.dino_fallback`、`sku_query.dino_confidence_threshold`、`sku_query.owlv2_score_threshold` 与 `sku_query.max_boxes` 是节点级查询配置。
 
 首期服务包括：
 

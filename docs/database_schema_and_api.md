@@ -171,7 +171,7 @@ CREATE TABLE delivery_tables (
 
 ### 2.4 `sku_catalog` — SKU 目录表
 
-记录所有可放置的商品类型及其 3D 模型资源路径。
+记录所有可放置的商品类型、3D 模型资源路径和本地 OWLv2 检索描述。
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -179,13 +179,15 @@ CREATE TABLE delivery_tables (
 | `category` | TEXT | NOT NULL DEFAULT '' | 品类 (food/drink/cleaning/kitchen) |
 | `mesh_file` | TEXT | NOT NULL DEFAULT '' | OBJ 网格文件路径 |
 | `tex_file` | TEXT | NOT NULL DEFAULT '' | 纹理贴图路径 |
+| `owlv2_prompt` | TEXT | NOT NULL DEFAULT '' | 人工审核的英文商品视觉检索短语 |
 
 ```sql
 CREATE TABLE sku_catalog (
     sku         TEXT PRIMARY KEY,
     category    TEXT NOT NULL DEFAULT '',
     mesh_file   TEXT NOT NULL DEFAULT '',
-    tex_file    TEXT NOT NULL DEFAULT ''
+    tex_file    TEXT NOT NULL DEFAULT '',
+    owlv2_prompt TEXT NOT NULL DEFAULT ''
 );
 ```
 
@@ -289,14 +291,15 @@ SQLite 是唯一可写业务真源。`data/shelf_calibration/{shelf_id}.json` �
 |------|------|------|
 | `/api/shelves` | `name`、`world_x`、`world_y`、`yaw`、`shelf_type_id` 可选 | `{"id": shelf_id, "state": State}` |
 | `/api/delivery-tables` | `name`、`world_x`、`world_y`、`yaw` | `{"id": table_id, "state": State}` |
-| `/api/skus` | `sku`，可选 `category`、`mesh_file`、`tex_file` | `{"state": State}` |
+| `/api/skus` | `sku`，可选 `category`、`mesh_file`、`tex_file`、`owlv2_prompt` | `{"state": State}` |
 | `/api/slots` | `shelf_id`、`face`、`level`、`y_cm`、`expected_sku`；可选 `actual_sku`、尺寸、`bbox`、`image_dir` | `{"slot": Slot, "state": State}` |
 | `/api/slots/{slot_id}/take` | 空对象 `{}` | `{"slot": Slot, "state": State}`；实际 SKU 置空 |
 | `/api/slots/{slot_id}/restock` | 空对象 `{}` | `{"slot": Slot, "state": State}`；实际 SKU 恢复为预期 SKU |
 | `/api/imports/manual` | `items`、`new_skus`、`layers`、`shelf_image` | `{"slot_ids": [...], "state": State}` |
+| `/api/sku-prompts/owlv2` | `requests: [{sku, images: [data_url, ...]}]`，每项 1 至 3 张正常裁剪图 | `{"drafts": [{"sku": "...", "owlv2_prompt": "..."}]}`；只生成草稿，不写数据库 |
 | `/api/grounding/products` | `image_data` | `{"boxes": [...], "detected": number}` |
 | `/api/vision/inspect` | `image_data`、可选 `config`、`debug` | `{"report": InspectionReport}`，状态不写数据库 |
-| `/api/sku-query` | `image_data`、`query`、`provider`、`model`、可选 `config`、`debug` | `{"report": SkuQueryReport}` |
+| `/api/sku-query` | `image_data`、`query`、`provider`、`model`、可选 `config`、`debug` | `{"report": SkuQueryReport}`；`provider=local` 固定使用 OWLv2，忽略 `model`，要求 SKU 已有非空 `owlv2_prompt` |
 | `/api/image-stitch` | `images`（2 至 8 张）、可选 `main_index` | `{"report": ImageStitchReport}` |
 | `/api/image-stitch/runs/{run_id}/rectify` | `points` 四点数组 | `{"report": ImageStitchReport}` |
 | `/api/vision/runs/{run_id}/apply` | `slot_ids` 非空字符串数组 | `{"slots": [...], "state": State}` |
@@ -306,7 +309,8 @@ SQLite 是唯一可写业务真源。`data/shelf_calibration/{shelf_id}.json` �
 | 路径 | 请求参数 | 返回 |
 |------|------|------|
 | `/api/vision/config` | 巡检阈值和 `vlm_fallback` 等配置 | `{"inspection": config}` |
-| `/api/sku-query/config` | `max_boxes`、`dino_fallback`、`dino_confidence_threshold` | `{"sku_query": config}` |
+| `/api/sku-query/config` | `max_boxes`、`dino_fallback`、`dino_confidence_threshold`、`owlv2_score_threshold` | `{"sku_query": config}` |
+| `/api/skus/{sku}` | `category`、`mesh_file`、`tex_file`、`owlv2_prompt` | `{"state": State}` |
 | `/api/shelf-types/{id}` | 10 个货架物理参数 | `{"state": State}` |
 | `/api/shelves/{id}` | 可选 `name`、`world_x`、`world_y`、`yaw`、`shelf_type_id` | `{"state": State}` |
 | `/api/delivery-tables/{id}` | 可选 `name`、`world_x`、`world_y`、`yaw` | `{"state": State}` |
@@ -347,7 +351,10 @@ sku_query:
   max_boxes: 1
   dino_fallback: false
   dino_confidence_threshold: 0.72
+  owlv2_score_threshold: 0.10
 ```
+
+`sku_catalog.owlv2_prompt` 是人工可编辑的英文自由文本商品对象描述，供 OWLv2 开放目标检测使用。人工批量导入页会对每个 SKU 从 `actual_sku == expected_sku` 的正常裁剪图中按面积选最多三张，请 Ark 只生成草稿；只有最终导入或 SKU 编辑保存才会写入数据库。提示词为空不会影响人工录入或云端 VLM 查询，但本地 `provider=local` 会明确拒绝该 SKU。以 SKU 查询时，参考图优先取 `expected_sku == actual_sku == query` 且已有裁剪图的正常 slot；无正常样本时才回退到其他有图的应摆 slot。
 
 未开启 Ark 保底时，DINO 低于置信度阈值会返回 `actual_sku=null`；开启后交给 Ark 判断，Ark 无法判断时同样按缺货处理。巡检结果只有在调用 `/api/vision/runs/{run_id}/apply` 后才会更新数据库；`debug=false` 没有运行记录，不能调用 `apply`。
 
@@ -417,7 +424,8 @@ data/shelf_images/{shelf_id}/+x_0.png
 
 | API | 签名 | 返回值 | 说明 |
 |-----|------|--------|------|
-| `register_sku` | `(sku, category="", mesh_file="", tex_file="")` | `None` | 注册/更新一个 SKU；使用安全 UPSERT，不影响已关联库存 |
+| `register_sku` | `(sku, category="", mesh_file="", tex_file="", owlv2_prompt=None)` | `None` | 注册/更新一个 SKU；使用安全 UPSERT，不影响已关联库存 |
+| `update_sku` | `(sku, category, mesh_file, tex_file, owlv2_prompt)` | `SkuInfo` | 更新已有 SKU 的目录信息与本地检索提示词 |
 | `register_skus_batch` | `(skus: List[Dict])` | `None` | 批量注册 SKU；不替换已有目录行 |
 | `get_sku_info` | `(sku)` | `Optional[SkuInfo]` | 获取 SKU 信息 |
 | `get_all_skus` | `()` | `List[SkuInfo]` | 获取所有 SKU |
@@ -513,7 +521,7 @@ data/shelf_images/{shelf_id}/+x_0.png
 |------|------|------|
 | `ShelfType` | `id, name, shelf_length, shelf_width, shelf_height, num_levels, bottom_clearance, level_spacing, panel_thick, back_thick, shelf_depth_normal, shelf_depth_bottom` | 货架类型标识及 10 个物理参数 |
 | `ShelfGroup` | `id, name, world_x, world_y, yaw, shelf_type_id, created_at` | 货架组信息 |
-| `SkuInfo` | `sku, category, mesh_file, tex_file` | SKU 信息 |
+| `SkuInfo` | `sku, category, mesh_file, tex_file, owlv2_prompt` | SKU 信息 |
 | `ShelfSlot` | `slot_id, shelf_id, face, level, y_cm, expected_sku, actual_sku, width_cm, height_cm, image_dir, status` | 固定位置、当前内容和派生状态 |
 | `LocalPos` | `x, y, z` | 货架局部坐标 |
 | `WorldPos` | `x, y, z` | 世界坐标 |

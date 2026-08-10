@@ -109,6 +109,7 @@ class SkuInfo:
     category: str = ""
     mesh_file: str = ""
     tex_file: str = ""
+    owlv2_prompt: str = ""
 
 
 @dataclass
@@ -228,12 +229,24 @@ class ShelfDatabase:
                 sku         TEXT PRIMARY KEY,
                 category    TEXT NOT NULL DEFAULT '',
                 mesh_file   TEXT NOT NULL DEFAULT '',
-                tex_file    TEXT NOT NULL DEFAULT ''
+                tex_file    TEXT NOT NULL DEFAULT '',
+                owlv2_prompt TEXT NOT NULL DEFAULT ''
             )
         """)
 
+        self._ensure_sku_schema()
         self._ensure_inventory_schema()
         self.conn.commit()
+
+    def _ensure_sku_schema(self):
+        """Add the local OWLv2 prompt to catalogues created before this field existed."""
+        columns = {
+            row["name"] for row in self.conn.execute("PRAGMA table_info(sku_catalog)").fetchall()
+        }
+        if "owlv2_prompt" not in columns:
+            self.conn.execute(
+                "ALTER TABLE sku_catalog ADD COLUMN owlv2_prompt TEXT NOT NULL DEFAULT ''"
+            )
 
     def _create_inventory_table(self):
         self.conn.execute("""
@@ -658,35 +671,47 @@ class ShelfDatabase:
     # SKU 目录管理
     # ================================================================
 
+    @staticmethod
+    def _owlv2_prompt(value: str) -> str:
+        prompt = str(value).strip()
+        if len(prompt) > 240:
+            raise ValueError("owlv2_prompt must be at most 240 characters")
+        return prompt
+
     def register_sku(self, sku: str, category: str = "",
-                     mesh_file: str = "", tex_file: str = ""):
+                     mesh_file: str = "", tex_file: str = "", owlv2_prompt: Optional[str] = None):
         """注册或更新一个商品 SKU，不替换行以避免触发库存级联删除。"""
-        self.conn.execute(
-            "INSERT INTO sku_catalog (sku, category, mesh_file, tex_file) "
-            "VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(sku) DO UPDATE SET "
-            "category = excluded.category, mesh_file = excluded.mesh_file, tex_file = excluded.tex_file",
-            (sku, category, mesh_file, tex_file)
-        )
+        if owlv2_prompt is None:
+            self.conn.execute(
+                "INSERT INTO sku_catalog (sku, category, mesh_file, tex_file) "
+                "VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(sku) DO UPDATE SET "
+                "category = excluded.category, mesh_file = excluded.mesh_file, tex_file = excluded.tex_file",
+                (sku, category, mesh_file, tex_file),
+            )
+        else:
+            self.conn.execute(
+                "INSERT INTO sku_catalog (sku, category, mesh_file, tex_file, owlv2_prompt) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(sku) DO UPDATE SET "
+                "category = excluded.category, mesh_file = excluded.mesh_file, tex_file = excluded.tex_file, "
+                "owlv2_prompt = excluded.owlv2_prompt",
+                (sku, category, mesh_file, tex_file, self._owlv2_prompt(owlv2_prompt)),
+            )
         self.conn.commit()
 
     def register_skus_batch(self, skus: List[Dict[str, str]]):
         """批量注册SKU"""
-        data = [(s["sku"], s.get("category", ""),
-                 s.get("mesh_file", ""), s.get("tex_file", ""))
-                for s in skus]
-        self.conn.executemany(
-            "INSERT INTO sku_catalog (sku, category, mesh_file, tex_file) "
-            "VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(sku) DO UPDATE SET "
-            "category = excluded.category, mesh_file = excluded.mesh_file, tex_file = excluded.tex_file", data
-        )
-        self.conn.commit()
+        for sku in skus:
+            self.register_sku(
+                sku["sku"], sku.get("category", ""), sku.get("mesh_file", ""),
+                sku.get("tex_file", ""), sku.get("owlv2_prompt") if "owlv2_prompt" in sku else None,
+            )
 
     def get_sku_info(self, sku: str) -> Optional[SkuInfo]:
         """获取SKU信息"""
         row = self.conn.execute(
-            "SELECT sku, category, mesh_file, tex_file FROM sku_catalog WHERE sku = ?",
+            "SELECT sku, category, mesh_file, tex_file, owlv2_prompt FROM sku_catalog WHERE sku = ?",
             (sku,)
         ).fetchone()
         if row is None:
@@ -696,9 +721,20 @@ class ShelfDatabase:
     def get_all_skus(self) -> List[SkuInfo]:
         """获取所有SKU"""
         rows = self.conn.execute(
-            "SELECT sku, category, mesh_file, tex_file FROM sku_catalog ORDER BY sku"
+            "SELECT sku, category, mesh_file, tex_file, owlv2_prompt FROM sku_catalog ORDER BY sku"
         ).fetchall()
         return [SkuInfo(**dict(r)) for r in rows]
+
+    def update_sku(self, sku: str, category: str, mesh_file: str, tex_file: str,
+                   owlv2_prompt: str) -> SkuInfo:
+        if self.get_sku_info(sku) is None:
+            raise ValueError(f"SKU {sku} does not exist")
+        self.conn.execute(
+            "UPDATE sku_catalog SET category=?, mesh_file=?, tex_file=?, owlv2_prompt=? WHERE sku=?",
+            (category, mesh_file, tex_file, self._owlv2_prompt(owlv2_prompt), sku),
+        )
+        self.conn.commit()
+        return self.get_sku_info(sku)
 
     def remove_sku_from_catalog(self, sku: str):
         """删除未被固定货位引用的 SKU。"""
@@ -830,13 +866,24 @@ class ShelfDatabase:
             raise ValueError(f"Slot {slot_id} does not exist")
         return self.set_actual_sku(slot_id, slot.expected_sku)
 
-    def import_slots_batch(self, new_skus: List[Dict[str, str]], slots: List[Dict[str, Any]]) -> List[str]:
+    def import_slots_batch(self, new_skus: List[Dict[str, str]], slots: List[Dict[str, Any]],
+                           sku_prompts: Optional[List[Dict[str, str]]] = None) -> List[str]:
         """Atomically create SKUs and fixed shelf slots."""
         if not slots:
             raise ValueError("At least one shelf slot is required")
         keys = [(int(slot["shelf_id"]), int(slot["face"]), int(slot["level"]), float(slot["y_cm"])) for slot in slots]
         if len(set(keys)) != len(keys):
             raise ValueError("Duplicate positions exist in this import")
+        prompt_by_sku: Dict[str, str] = {}
+        for item in sku_prompts or []:
+            if not isinstance(item, dict):
+                raise ValueError("sku_prompts must contain objects")
+            sku_name = str(item.get("sku", "")).strip()
+            if not sku_name or sku_name in prompt_by_sku:
+                raise ValueError("sku_prompts contains an invalid or duplicate SKU")
+            prompt = self._owlv2_prompt(item.get("owlv2_prompt", ""))
+            if prompt:
+                prompt_by_sku[sku_name] = prompt
         with self.conn:
             for sku in new_skus:
                 sku_name = str(sku["sku"]).strip()
@@ -847,6 +894,10 @@ class ShelfDatabase:
                     "ON CONFLICT(sku) DO NOTHING",
                     (sku_name, str(sku.get("category", "")))
                 )
+            for sku_name, prompt in prompt_by_sku.items():
+                if self.get_sku_info(sku_name) is None:
+                    raise ValueError(f"SKU {sku_name} does not exist")
+                self.conn.execute("UPDATE sku_catalog SET owlv2_prompt=? WHERE sku=?", (prompt, sku_name))
             for slot, key in zip(slots, keys):
                 shelf_id, face, level, y_cm = key
                 expected_sku = str(slot["expected_sku"]).strip()

@@ -6,9 +6,10 @@ const defaultModels = {
   ark: 'doubao-seed-2-1-turbo-260628',
   siliconflow: 'Qwen/Qwen3.6-35B-A3B',
   dashscope: 'qwen3-vl-plus',
+  local: 'google/owlv2-large-patch14-ensemble',
 } as const
 
-const defaultConfig: SkuQueryConfig = { max_boxes: 1, dino_fallback: false, dino_confidence_threshold: 0.72 }
+const defaultConfig: SkuQueryConfig = { max_boxes: 1, dino_fallback: false, dino_confidence_threshold: 0.72, owlv2_score_threshold: 0.10 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) } })
@@ -54,7 +55,7 @@ export function SkuQueryPage({ state, onBack }: { state: WarehouseState; onBack:
   const run = async () => {
     if (!imageData) { setNotice('请先选择局部货架图片'); return }
     if (!query.trim()) { setNotice('请输入固定位置 ID 或 SKU'); return }
-    setRunning(true); setNotice('正在调用 VLM 查询目标商品')
+    setRunning(true); setNotice(provider === 'local' ? '正在调用本地 OWLv2 查询目标商品' : '正在调用 VLM 查询目标商品')
     try {
       const result = await request<{ report: SkuQueryReport }>('/api/sku-query', { method: 'POST', body: JSON.stringify({ image_data: imageData, query: query.trim(), provider, model, config, debug: true }) })
       setReport(result.report)
@@ -62,8 +63,8 @@ export function SkuQueryPage({ state, onBack }: { state: WarehouseState; onBack:
     } catch (error) { setNotice(error instanceof Error ? error.message : '货物查询失败') } finally { setRunning(false) }
   }
 
-  const artifactUrl = (name: string) => '/api/sku-query/runs/' + encodeURIComponent(report!.run_id) + '/artifact/' + encodeURIComponent(name)
-  const resultImage = report?.artifacts.annotated_matches
+  const artifactUrl = (name: string) => '/api/sku-query/runs/' + encodeURIComponent(report!.run_id ?? '') + '/artifact/' + encodeURIComponent(name)
+  const resultImage = report?.artifacts?.annotated_matches
 
   return <main className="inspection-page">
     <header className="manual-header"><button className="back-button" onClick={onBack}><ArrowLeft size={16} />返回管理</button><div><span>货物查询</span><small>根据 SKU 参考图，在局部货架照片中定位商品</small></div></header>
@@ -75,9 +76,10 @@ export function SkuQueryPage({ state, onBack }: { state: WarehouseState; onBack:
         <div className="tool-divider" />
         <label className="inspection-field"><span>固定位置 ID 或 SKU</span><input list="sku-query-options" value={query} placeholder="例如 1-0-2-43 或 雪碧" onChange={(event) => setQuery(event.target.value)} /></label>
         <datalist id="sku-query-options">{state.slots.map((slot) => <option key={slot.slot_id} value={slot.slot_id}>{slot.expected_sku}</option>)}{state.skus.map((item) => <option key={'sku-' + item.sku} value={item.sku} />)}</datalist>
-        <label className="inspection-field"><span>来源</span><select value={provider} onChange={(event) => { const next = event.target.value as keyof typeof defaultModels; setProvider(next); setModel(defaultModels[next]) }}><option value="ark">Ark</option><option value="siliconflow">SiliconFlow</option><option value="dashscope">DashScope</option></select></label>
-        <label className="inspection-field"><span>模型</span><input value={model} onChange={(event) => setModel(event.target.value)} /></label>
+        <label className="inspection-field"><span>来源</span><select value={provider} onChange={(event) => { const next = event.target.value as keyof typeof defaultModels; setProvider(next); setModel(defaultModels[next]) }}><option value="ark">Ark</option><option value="siliconflow">SiliconFlow</option><option value="dashscope">DashScope</option><option value="local">本地 OWLv2</option></select></label>
+        <label className="inspection-field"><span>模型</span><input value={model} readOnly={provider === 'local'} onChange={(event) => setModel(event.target.value)} /></label>
         <label className="inspection-field"><span>最多输出框 {config.max_boxes}</span><input type="range" min="1" max="20" step="1" value={config.max_boxes} onChange={(event) => setConfig({ ...config, max_boxes: Number(event.target.value) })} /></label>
+        {provider === 'local' && <label className="inspection-field"><span>OWLv2 候选置信度 {config.owlv2_score_threshold.toFixed(2)}</span><input type="range" min="0" max="1" step="0.01" value={config.owlv2_score_threshold} onChange={(event) => setConfig({ ...config, owlv2_score_threshold: Number(event.target.value) })} /></label>}
         <label className="empty-position-toggle"><input type="checkbox" checked={config.dino_fallback} onChange={(event) => setConfig({ ...config, dino_fallback: event.target.checked })} />DINO 保底验证</label>
         {config.dino_fallback && <label className="inspection-field"><span>DINO 置信度 {config.dino_confidence_threshold.toFixed(2)}</span><input type="range" min="0" max="1" step="0.01" value={config.dino_confidence_threshold} onChange={(event) => setConfig({ ...config, dino_confidence_threshold: Number(event.target.value) })} /></label>}
         <button className="secondary-button" onClick={() => void saveConfig()}><Save size={15} />保存配置</button>
@@ -88,10 +90,10 @@ export function SkuQueryPage({ state, onBack }: { state: WarehouseState; onBack:
     {report && <section className="review-band sku-query-review">
       <div className="sku-query-summary">
         <img src={'/api/item-images/' + encodeURIComponent(report.reference_slot_id) + '/0.png'} alt={report.sku + ' 参考图'} />
-        <div><span>查询结果</span><strong>{report.sku}</strong><small>参考位置 {report.reference_slot_id} / VLM {report.vlm_detected_boxes.length} 个 / 最终 {report.detected_boxes.length} 个</small></div>
-        <div className="sku-query-metrics"><span>来源 {report.provider}</span><span>模型 {report.model}</span><span>{report.config.dino_fallback ? 'DINO 已验证' : '仅 VLM'}</span><span>请求 {report.request_seconds.toFixed(2)} 秒</span><span>总计 {report.total_seconds.toFixed(2)} 秒</span></div>
+        <div><span>查询结果</span><strong>{report.sku}</strong><small>参考位置 {report.reference_slot_id} / {report.provider === 'local' ? 'OWLv2' : 'VLM'} {(report.owlv2_detected_boxes ?? report.vlm_detected_boxes ?? []).length} 个 / 最终 {report.detected_boxes.length} 个</small></div>
+        <div className="sku-query-metrics"><span>来源 {report.provider}</span><span>模型 {report.model}</span><span>{report.config?.dino_fallback ? 'DINO 已验证' : report.provider === 'local' ? '仅 OWLv2' : '仅 VLM'}</span><span>请求 {report.request_seconds.toFixed(2)} 秒</span><span>总计 {report.total_seconds.toFixed(2)} 秒</span></div>
       </div>
-      <pre className="sku-query-raw" aria-label="VLM 原始输出">{report.raw_response || 'NONE'}</pre>
+      {report.provider !== 'local' && <pre className="sku-query-raw" aria-label="VLM 原始输出">{report.raw_response || 'NONE'}</pre>}
     </section>}
   </main>
 }

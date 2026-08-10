@@ -30,8 +30,9 @@ from vision.config import (
 )
 from vision.cv_restock_position import run_inspection
 from vision.dino import preload_dino
+from vision.owlv2 import preload_owlv2, run_owlv2_sku_query
 from vision.image_stitch import rectify_stitched_image, run_image_stitch
-from vision.vlm_sku_query import run_vlm_sku_query
+from vision.vlm_sku_query import generate_owlv2_prompt, run_vlm_sku_query
 from scene_geometry import delivery_table_spec
 from shelf_database import ShelfDatabase
 import calibration_manager
@@ -194,7 +195,7 @@ def sku_query_reference(query):
         elif db.get_sku_info(query) is not None:
             candidates = sorted(
                 (item for item in db.get_all_slots_world() if item["expected_sku"] == query),
-                key=lambda item: item["slot_id"],
+                key=lambda item: (item["actual_sku"] != query, item["slot_id"]),
             )
         else:
             raise ValueError("Query must be an existing slot ID or SKU")
@@ -211,18 +212,21 @@ def sku_query_config(payload):
     if not isinstance(payload, dict):
         raise ValueError("SKU query config must be an object")
     config = get_sku_query_config()
-    for key in ("max_boxes", "dino_fallback", "dino_confidence_threshold"):
+    for key in ("max_boxes", "dino_fallback", "dino_confidence_threshold", "owlv2_score_threshold"):
         if key in payload:
             config[key] = payload[key]
     try:
         config["max_boxes"] = int(config["max_boxes"])
         config["dino_confidence_threshold"] = float(config["dino_confidence_threshold"])
+        config["owlv2_score_threshold"] = float(config["owlv2_score_threshold"])
     except (TypeError, ValueError) as error:
         raise ValueError("SKU query limits must be numeric") from error
     if not 1 <= config["max_boxes"] <= 20:
         raise ValueError("max_boxes must be between 1 and 20")
     if not 0 <= config["dino_confidence_threshold"] <= 1:
         raise ValueError("dino_confidence_threshold must be between 0 and 1")
+    if not 0 <= config["owlv2_score_threshold"] <= 1:
+        raise ValueError("owlv2_score_threshold must be between 0 and 1")
     if not isinstance(config["dino_fallback"], bool):
         raise ValueError("dino_fallback must be a boolean")
     return config
@@ -445,6 +449,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         """Stage item crops and one shelf-face source photo before importing slots."""
         items = payload.get("items")
         new_skus = payload.get("new_skus", [])
+        sku_prompts = payload.get("sku_prompts", [])
         shelf_image = payload.get("shelf_image")
         layers_data = payload.get("layers", {})
         slots_calib = []
@@ -452,6 +457,8 @@ class ApiHandler(BaseHTTPRequestHandler):
             raise ValueError("items must be a non-empty list")
         if not isinstance(new_skus, list):
             raise ValueError("new_skus must be a list")
+        if not isinstance(sku_prompts, list):
+            raise ValueError("sku_prompts must be a list")
 
         batch_dir = os.path.join(ITEM_IMAGES_DIR, ".staging", uuid.uuid4().hex)
         staged_dirs = []
@@ -572,7 +579,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                 os.replace(staged_shelf_image, shelf_image_target)
                 shelf_image_promoted = True
             with ShelfDatabase(DB_PATH) as db:
-                slot_ids = db.import_slots_batch(new_skus, db_items)
+                slot_ids = db.import_slots_batch(new_skus, db_items, sku_prompts)
             database_imported = True
 
             if cal_shelf_id is not None and cal_face is not None:
@@ -611,6 +618,32 @@ class ApiHandler(BaseHTTPRequestHandler):
         finally:
             if os.path.isdir(batch_dir):
                 shutil.rmtree(batch_dir, ignore_errors=True)
+
+    def _draft_owlv2_prompts(self, payload):
+        requests = payload.get("requests")
+        if not isinstance(requests, list) or not 1 <= len(requests) <= 50:
+            raise ValueError("requests must contain between 1 and 50 items")
+        drafts = []
+        for item in requests:
+            if not isinstance(item, dict):
+                raise ValueError("requests must contain objects")
+            sku = str(item.get("sku", "")).strip()
+            images = item.get("images")
+            if not sku or not isinstance(images, list) or not 1 <= len(images) <= 3:
+                raise ValueError("Each request needs a SKU and one to three images")
+            sources = []
+            for image_data in images:
+                if not isinstance(image_data, str) or not image_data.startswith("data:image/") or ";base64," not in image_data:
+                    raise ValueError("Prompt samples must be base64-encoded images")
+                try:
+                    image_bytes = base64.b64decode(image_data.split(",", 1)[1], validate=True)
+                    with Image.open(BytesIO(image_bytes)) as image:
+                        image.verify()
+                except (ValueError, OSError, binascii.Error) as error:
+                    raise ValueError("Prompt sample is not a valid image") from error
+                sources.append(image_bytes)
+            drafts.append({"sku": sku, "owlv2_prompt": generate_owlv2_prompt(sku, sources)})
+        self.send_json({"drafts": drafts}, HTTPStatus.CREATED)
 
     def _ground_products(self, payload):
         """Run Ark grounding on a browser-provided photo without exposing the API key."""
@@ -687,34 +720,50 @@ class ApiHandler(BaseHTTPRequestHandler):
         if not query:
             raise ValueError("query is required")
         provider = str(payload.get("provider", "ark")).strip()
-        if provider not in {"ark", "siliconflow", "dashscope"}:
-            raise ValueError("provider must be ark, siliconflow, or dashscope")
+        if provider not in {"ark", "siliconflow", "dashscope", "local"}:
+            raise ValueError("provider must be ark, siliconflow, dashscope, or local")
         model = str(payload.get("model", "")).strip()
-        if not model or len(model) > 200:
+        if provider != "local" and (not model or len(model) > 200):
             raise ValueError("model must be between 1 and 200 characters")
         config = sku_query_config(payload.get("config", {}))
         debug = read_debug(payload)
         sku, reference_slot_id, reference_path = sku_query_reference(query)
+        with ShelfDatabase(DB_PATH) as db:
+            sku_info = db.get_sku_info(sku)
+        if provider == "local" and (sku_info is None or not sku_info.owlv2_prompt):
+            raise ValueError(f"SKU {sku} has no owlv2_prompt; review it before local querying")
         run_dir = sku_query_run_directory(uuid.uuid4().hex) if debug else None
         if debug:
             with tempfile.TemporaryDirectory(prefix="sku-query-") as temporary:
                 shelf_path = Path(temporary) / f"shelf{extension}"
                 shelf_path.write_bytes(image_bytes)
-                report = run_vlm_sku_query(
-                    sku, reference_path, shelf_path, provider, model, run_dir,
-                    max_boxes=config["max_boxes"],
-                    dino_fallback=config["dino_fallback"],
-                    dino_confidence_threshold=config["dino_confidence_threshold"],
-                    debug=True,
-                )
+                if provider == "local":
+                    report = run_owlv2_sku_query(
+                        sku, sku_info.owlv2_prompt, reference_path, shelf_path, run_dir,
+                        max_boxes=config["max_boxes"], owlv2_score_threshold=config["owlv2_score_threshold"],
+                        dino_fallback=config["dino_fallback"],
+                        dino_confidence_threshold=config["dino_confidence_threshold"], debug=True,
+                    )
+                else:
+                    report = run_vlm_sku_query(
+                        sku, reference_path, shelf_path, provider, model, run_dir,
+                        max_boxes=config["max_boxes"], dino_fallback=config["dino_fallback"],
+                        dino_confidence_threshold=config["dino_confidence_threshold"], debug=True,
+                    )
         else:
-            report = run_vlm_sku_query(
-                sku, reference_path, image_bytes, provider, model,
-                max_boxes=config["max_boxes"],
-                dino_fallback=config["dino_fallback"],
-                dino_confidence_threshold=config["dino_confidence_threshold"],
-                debug=False,
-            )
+            if provider == "local":
+                report = run_owlv2_sku_query(
+                    sku, sku_info.owlv2_prompt, reference_path, image_bytes,
+                    max_boxes=config["max_boxes"], owlv2_score_threshold=config["owlv2_score_threshold"],
+                    dino_fallback=config["dino_fallback"],
+                    dino_confidence_threshold=config["dino_confidence_threshold"], debug=False,
+                )
+            else:
+                report = run_vlm_sku_query(
+                    sku, reference_path, image_bytes, provider, model,
+                    max_boxes=config["max_boxes"], dino_fallback=config["dino_fallback"],
+                    dino_confidence_threshold=config["dino_confidence_threshold"], debug=False,
+                )
         report = {**report, "query": query, "reference_slot_id": reference_slot_id}
         if debug:
             (run_dir / "result.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -806,7 +855,7 @@ class ApiHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = urlparse(self.path).path
         try:
-            payload = self.read_json(96 * 1024 * 1024 if path == "/api/image-stitch" else 20 * 1024 * 1024 if path in {"/api/imports/manual", "/api/grounding/products", "/api/vision/inspect", "/api/sku-query"} else 64 * 1024)
+            payload = self.read_json(96 * 1024 * 1024 if path == "/api/image-stitch" else 20 * 1024 * 1024 if path in {"/api/imports/manual", "/api/grounding/products", "/api/vision/inspect", "/api/sku-query", "/api/sku-prompts/owlv2"} else 64 * 1024)
             if path == "/api/shelves":
                 with ShelfDatabase(DB_PATH) as db:
                     shelf_id = db.add_shelf_group(
@@ -837,7 +886,8 @@ class ApiHandler(BaseHTTPRequestHandler):
                         self.send_json({"error": "SKU already exists"}, HTTPStatus.CONFLICT)
                         return
                     db.register_sku(sku, str(payload.get("category", "")),
-                                    str(payload.get("mesh_file", "")), str(payload.get("tex_file", "")))
+                                    str(payload.get("mesh_file", "")), str(payload.get("tex_file", "")),
+                                    str(payload.get("owlv2_prompt", "")))
                 self.send_json({"state": snapshot()}, HTTPStatus.CREATED)
                 return
             if path == "/api/slots":
@@ -889,6 +939,9 @@ class ApiHandler(BaseHTTPRequestHandler):
             if path == "/api/imports/manual":
                 self._import_manual_batch(payload)
                 return
+            if path == "/api/sku-prompts/owlv2":
+                self._draft_owlv2_prompts(payload)
+                return
             if path == "/api/grounding/products":
                 self._ground_products(payload)
                 return
@@ -929,6 +982,17 @@ class ApiHandler(BaseHTTPRequestHandler):
                 return
             if path == "/api/sku-query/config":
                 self.send_json({"sku_query": save_sku_query_config(sku_query_config(payload))})
+                return
+            if path.startswith("/api/skus/"):
+                sku = unquote(path[len("/api/skus/"):]).strip("/")
+                if not sku:
+                    raise ValueError("SKU is required")
+                with ShelfDatabase(DB_PATH) as db:
+                    db.update_sku(
+                        sku, str(payload.get("category", "")), str(payload.get("mesh_file", "")),
+                        str(payload.get("tex_file", "")), str(payload.get("owlv2_prompt", "")),
+                    )
+                self.send_json({"state": snapshot()})
                 return
             if path.startswith("/api/shelf-types/"):
                 type_id = int(path.rsplit("/", 1)[1])
@@ -1086,6 +1150,8 @@ def main():
     port = int(os.environ.get("SHELF_API_PORT", "8000"))
     print("Loading DINOv2 model...")
     preload_dino()
+    print("Loading OWLv2 model...")
+    preload_owlv2()
     server = ThreadingHTTPServer(("127.0.0.1", port), ApiHandler)
     print(f"Warehouse API listening on http://127.0.0.1:{port}")
     try:

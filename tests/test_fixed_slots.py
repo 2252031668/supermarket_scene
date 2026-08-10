@@ -160,6 +160,31 @@ class FixedSlotTests(unittest.TestCase):
         self.assertEqual(self.db.get_slot_by_id(slot_ids[0]).status, "缺货")
         self.assertEqual(self.db.get_slot_by_id(slot_ids[1]).status, "摆放错误")
 
+    def test_sku_owlv2_prompt_is_editable_and_batch_import_is_atomic(self):
+        self.db.register_sku("cola", owlv2_prompt="a red cola bottle")
+        self.assertEqual(self.db.get_sku_info("cola").owlv2_prompt, "a red cola bottle")
+
+        self.db.import_slots_batch(
+            [{"sku": "water"}],
+            [{
+                "shelf_id": self.shelf_id, "face": 0, "level": 2, "y_cm": 30,
+                "expected_sku": "water", "actual_sku": "water",
+            }],
+            [{"sku": "water", "owlv2_prompt": "a green mineral water bottle"}],
+        )
+        self.assertEqual(self.db.get_sku_info("water").owlv2_prompt, "a green mineral water bottle")
+
+        self.db.update_sku("water", "drink", "water.xml", "water.png", "a clear water bottle")
+        self.assertEqual(self.db.get_sku_info("water").owlv2_prompt, "a clear water bottle")
+
+    def test_sku_owlv2_prompt_survives_database_reopen(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = str(Path(temporary) / "inventory.db")
+            with ShelfDatabase(path) as db:
+                db.register_sku("water", owlv2_prompt="a clear mineral water bottle")
+            with ShelfDatabase(path) as db:
+                self.assertEqual(db.get_sku_info("water").owlv2_prompt, "a clear mineral water bottle")
+
     def test_inspection_decision_without_vlm_turns_low_confidence_into_shortage(self):
         from vision.cv_restock_position import classify_candidate
 
@@ -294,6 +319,83 @@ class FixedSlotTests(unittest.TestCase):
         matches = select_dino_boxes(boxes, [0.82, 0.91, 0.79], confidence_threshold=0.8, max_results=2)
 
         self.assertEqual([box.index for box in matches], [2, 1])
+
+    def test_owlv2_candidate_filter_uses_current_transformers_processor_api(self):
+        import torch
+        from vision.owlv2 import owlv2_candidates
+
+        model_output = object()
+        testcase = self
+
+        class Processor:
+            def __call__(self, **_kwargs):
+                testcase.assertTrue(_kwargs["padding"] == "max_length")
+                testcase.assertTrue(_kwargs["truncation"])
+                testcase.assertEqual(_kwargs["max_length"], 16)
+                return {"pixel_values": torch.zeros((1, 3, 4, 4))}
+
+            def post_process_grounded_object_detection(self, outputs, threshold, target_sizes):
+                testcase.assertIs(outputs, model_output)
+                testcase.assertEqual(threshold, 0.5)
+                testcase.assertEqual(target_sizes, [(20, 40)])
+                return [{"boxes": torch.tensor([[1, 2, 11, 18]], dtype=torch.float32), "scores": torch.tensor([0.9])}]
+
+        class Model:
+            def __call__(self, **_kwargs):
+                return model_output
+
+        image = BytesIO()
+        Image.new("RGB", (40, 20), "white").save(image, format="PNG")
+        processor = Processor()
+        with patch("vision.owlv2.get_owlv2_runtime", return_value=(processor, Model(), "cpu")):
+            boxes, scores = owlv2_candidates(image.getvalue(), "water", "a water bottle", 0.5, 1)
+        self.assertEqual(boxes[0].pixels, (1, 2, 11, 18))
+        self.assertAlmostEqual(scores[0], 0.9)
+
+    def test_owlv2_production_mode_returns_scores_without_artifacts(self):
+        from vision.ark_grounding import BoundingBox
+        from vision.owlv2 import run_owlv2_sku_query
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target = root / "target.png"
+            Image.new("RGB", (10, 10), "green").save(target)
+            shelf = BytesIO()
+            Image.new("RGB", (20, 10), "white").save(shelf, format="PNG")
+            candidate = BoundingBox(1, "water", (0, 0, 500, 999), (0, 0, 10, 10))
+            with patch("vision.owlv2.owlv2_candidates", return_value=([candidate], [0.9])):
+                report = run_owlv2_sku_query(
+                    "water", "a water bottle", target, shelf.getvalue(), root / "run", debug=False,
+                )
+            self.assertEqual(report["owlv2_scores"], [{"index": 1, "confidence": 0.9}])
+            self.assertFalse((root / "run").exists())
+
+    def test_owlv2_dino_fallback_ranks_all_owlv2_candidates_before_top_n(self):
+        from vision.ark_grounding import BoundingBox
+        from vision.owlv2 import run_owlv2_sku_query
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target = root / "target.png"
+            Image.new("RGB", (10, 10), "green").save(target)
+            shelf = BytesIO()
+            Image.new("RGB", (20, 10), "white").save(shelf, format="PNG")
+            candidates = [
+                BoundingBox(index=1, label="water", normalized=(0, 0, 200, 999), pixels=(0, 0, 4, 10)),
+                BoundingBox(index=2, label="water", normalized=(200, 0, 400, 999), pixels=(4, 0, 8, 10)),
+                BoundingBox(index=3, label="water", normalized=(400, 0, 600, 999), pixels=(8, 0, 12, 10)),
+            ]
+            with patch("vision.owlv2.owlv2_candidates", return_value=(candidates, [0.91, 0.88, 0.84])) as detector:
+                with patch("vision.owlv2.dino_box_scores", return_value=[0.71, 0.96, 0.82]) as dino:
+                    report = run_owlv2_sku_query(
+                        "water", "a green water bottle", target, shelf.getvalue(),
+                        max_boxes=1, owlv2_score_threshold=0.8, dino_fallback=True,
+                        dino_confidence_threshold=0.72, debug=False,
+                    )
+
+            self.assertEqual(detector.call_args.args[-1], None)
+            dino.assert_called_once_with(target, shelf.getvalue(), candidates)
+            self.assertEqual([box["index"] for box in report["detected_boxes"]], [2])
 
     def test_dino_runtime_is_loaded_once_and_reused(self):
         from vision import dino
@@ -613,6 +715,24 @@ class FixedSlotTests(unittest.TestCase):
             self.assertEqual(report["detected_boxes"][0]["label"], "sprite")
             self.assertEqual(sorted(path.name for path in directory.iterdir()), ["shelf.png", "target.png"])
 
+    def test_owlv2_prompt_generation_uses_visual_description_not_pinyin(self):
+        from vision.vlm_sku_query import ProviderResponse, generate_owlv2_prompt
+
+        sample = BytesIO()
+        Image.new("RGB", (20, 20), "green").save(sample, format="PNG")
+        response = ProviderResponse(
+            provider="ark", model="test-model", content="green plastic tea bottle",
+            request_id="request", usage=None, request_seconds=0.1,
+        )
+        with patch("vision.vlm_sku_query.request_ark", return_value=response) as request:
+            prompt = generate_owlv2_prompt("醒目", [sample.getvalue()])
+
+        self.assertEqual(prompt, "green plastic tea bottle")
+        instruction = request.call_args.args[0][0]["text"]
+        self.assertIn("不要把它当作检索词", instruction)
+        self.assertIn("不要输出 Xingmu", instruction)
+        self.assertIn("自由文本对象描述", instruction)
+
 
 class CalibrationProjectionTests(unittest.TestCase):
     def setUp(self):
@@ -816,6 +936,29 @@ class FixedSlotApiTests(unittest.TestCase):
         self.assertEqual(restocked["slot"]["status"], "正常")
         _, world = self.request("/api/slots/1-0-2-43/world-position")
         self.assertEqual(world["slot"]["slot_id"], "1-0-2-43")
+
+    def test_sku_reference_prefers_a_normal_slot_image(self):
+        for y_cm, actual_sku in ((10, "cola"), (20, "sprite")):
+            self.request(
+                "/api/slots",
+                "POST",
+                {
+                    "shelf_id": 1,
+                    "face": 0,
+                    "level": 2,
+                    "y_cm": y_cm,
+                    "expected_sku": "sprite",
+                    "actual_sku": actual_sku,
+                },
+            )
+            reference_dir = Path(api_server.ITEM_IMAGES_DIR) / f"1-0-2-{y_cm}"
+            reference_dir.mkdir(parents=True)
+            Image.new("RGB", (2, 2), "green").save(reference_dir / "0.png")
+
+        sku, slot_id, _reference = api_server.sku_query_reference("sprite")
+
+        self.assertEqual(sku, "sprite")
+        self.assertEqual(slot_id, "1-0-2-20")
 
     def test_vision_run_is_read_only_until_selected_result_is_applied(self):
         self.request(
@@ -1033,6 +1176,41 @@ class FixedSlotApiTests(unittest.TestCase):
         self.assertEqual(status, 201)
         self.assertNotIn("run_id", response["report"])
         self.assertFalse(Path(api_server.SKU_QUERY_OUTPUT_DIR).exists())
+
+    def test_local_sku_query_uses_reviewed_prompt(self):
+        with ShelfDatabase(self.db_path) as db:
+            db.update_sku("sprite", "", "", "", "a green lemon lime soda bottle")
+        slot_id = self.request(
+            "/api/slots", "POST", {
+                "shelf_id": 1, "face": 0, "level": 2, "y_cm": 50,
+                "expected_sku": "sprite", "actual_sku": "sprite",
+            },
+        )[1]["slot"]["slot_id"]
+        reference_dir = Path(api_server.ITEM_IMAGES_DIR) / slot_id
+        reference_dir.mkdir(parents=True)
+        Image.new("RGB", (2, 2), "green").save(reference_dir / "0.png")
+        image_bytes = BytesIO()
+        Image.new("RGB", (2, 2), "white").save(image_bytes, format="PNG")
+        image_data = "data:image/png;base64," + base64.b64encode(image_bytes.getvalue()).decode()
+
+        def fake_run(sku, prompt, target_path, shelf_source, output_dir=None, **options):
+            self.assertEqual(sku, "sprite")
+            self.assertEqual(prompt, "a green lemon lime soda bottle")
+            self.assertIsInstance(shelf_source, bytes)
+            self.assertIsNone(output_dir)
+            self.assertEqual(options["owlv2_score_threshold"], 0.19)
+            self.assertFalse(options["debug"])
+            return {"sku": sku, "provider": "local", "model": "google/owlv2-large-patch14-ensemble", "detected_boxes": []}
+
+        with patch.object(api_server, "run_owlv2_sku_query", side_effect=fake_run):
+            status, response = self.request(
+                "/api/sku-query", "POST", {
+                    "image_data": image_data, "query": slot_id, "provider": "local",
+                    "config": {"owlv2_score_threshold": 0.19},
+                },
+            )
+        self.assertEqual(status, 201)
+        self.assertEqual(response["report"]["provider"], "local")
 
     def test_image_stitch_returns_a_read_only_result(self):
         image_bytes = BytesIO()

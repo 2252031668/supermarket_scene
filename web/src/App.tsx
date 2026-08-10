@@ -14,7 +14,7 @@ const blankState: WarehouseState = {
 }
 
 type SlotDraft = Pick<Slot, 'slot_id' | 'shelf_id' | 'face' | 'level' | 'y_cm' | 'expected_sku' | 'actual_sku' | 'width_cm' | 'height_cm' | 'image_dir'>
-type SkuDraft = Pick<WarehouseState['skus'][number], 'sku' | 'category' | 'mesh_file' | 'tex_file'>
+type SkuDraft = Pick<WarehouseState['skus'][number], 'sku' | 'category' | 'mesh_file' | 'tex_file' | 'owlv2_prompt'>
 type CleanupScope = 'level' | 'face' | 'all' | 'shelf'
 type SlotWorldPosition = Slot & { frame: string }
 
@@ -195,7 +195,12 @@ export function App() {
   }
 
   const beginNewSku = () => {
-    setSkuDraft({ sku: '', category: '', mesh_file: '', tex_file: '' })
+    setSkuDraft({ sku: '', category: '', mesh_file: '', tex_file: '', owlv2_prompt: '' })
+  }
+
+  const beginEditSku = (sku: string) => {
+    const current = state.skus.find((item) => item.sku === sku)
+    if (current) setSkuDraft({ ...current })
   }
 
   const saveSku = async () => {
@@ -205,10 +210,11 @@ export function App() {
       setNotice('请输入 SKU 名称')
       return
     }
-    const result = await commit('/api/skus', 'POST', { ...skuDraft, sku })
+    const existing = state.skus.some((item) => item.sku === sku)
+    const result = await commit(existing ? `/api/skus/${encodeURIComponent(sku)}` : '/api/skus', existing ? 'PUT' : 'POST', { ...skuDraft, sku })
     if (result) {
       setSkuDraft(null)
-      setNotice(`已新增 SKU: ${sku}`)
+      setNotice(existing ? `已更新 SKU: ${sku}` : `已新增 SKU: ${sku}`)
     }
   }
 
@@ -311,7 +317,7 @@ export function App() {
               onClose={() => setCleanupShelfId(null)}
             />
           ) : skuDraft ? (
-            <SkuEditor draft={skuDraft} onChange={setSkuDraft} onSave={() => void saveSku()} onClose={() => setSkuDraft(null)} />
+            <SkuEditor draft={skuDraft} existing={state.skus.some((item) => item.sku === skuDraft.sku)} onChange={setSkuDraft} onSave={() => void saveSku()} onClose={() => setSkuDraft(null)} />
           ) : shelfTypeDraft ? (
             <ShelfTypeEditor draft={shelfTypeDraft} assignedShelfCount={state.shelves.filter((shelf) => shelf.shelf_type_id === shelfTypeDraft.id).length} onChange={setShelfTypeDraft} onSave={() => void saveShelfType()} onClose={() => setShelfTypeDraft(null)} />
           ) : selection.kind === 'slot' && slotDraft ? (
@@ -323,7 +329,7 @@ export function App() {
           ) : slotDraft ? (
             <SlotEditor draft={slotDraft} skus={state.skus} onChange={setSlotDraft} onSave={() => void saveSlot()} onTake={() => {}} onRestock={() => {}} onDelete={() => setSlotDraft(null)} onClose={() => setSlotDraft(null)} isNew />
           ) : (
-            <Overview state={state} onSelectSlot={(slot) => setSelection({ kind: 'slot', slot })} onSelectShelf={(shelfId) => setSelection({ kind: 'shelf', shelfId })} onAddShelf={() => void addShelf()} onSelectDeliveryTable={(tableId) => setSelection({ kind: 'delivery-table', tableId })} onAddDeliveryTable={() => void addDeliveryTable()} onAddSku={beginNewSku} onDeleteSku={(sku, itemCount) => void deleteSku(sku, itemCount)} />
+            <Overview state={state} onSelectSlot={(slot) => setSelection({ kind: 'slot', slot })} onSelectShelf={(shelfId) => setSelection({ kind: 'shelf', shelfId })} onAddShelf={() => void addShelf()} onSelectDeliveryTable={(tableId) => setSelection({ kind: 'delivery-table', tableId })} onAddDeliveryTable={() => void addDeliveryTable()} onAddSku={beginNewSku} onEditSku={beginEditSku} onDeleteSku={(sku, itemCount) => void deleteSku(sku, itemCount)} />
           )}
         </aside>
       </section>
@@ -335,7 +341,7 @@ function PanelHeader({ icon, title, eyebrow, action }: { icon: React.ReactNode; 
   return <div className="panel-header"><div className="panel-title"><span className="panel-icon">{icon}</span><div><p>{eyebrow}</p><h1>{title}</h1></div></div>{action}</div>
 }
 
-function Overview({ state, onSelectSlot, onSelectShelf, onAddShelf, onSelectDeliveryTable, onAddDeliveryTable, onAddSku, onDeleteSku }: { state: WarehouseState; onSelectSlot: (slot: Slot) => void; onSelectShelf: (id: number) => void; onAddShelf: () => void; onSelectDeliveryTable: (id: number) => void; onAddDeliveryTable: () => void; onAddSku: () => void; onDeleteSku: (sku: string, itemCount: number) => void }) {
+function Overview({ state, onSelectSlot, onSelectShelf, onAddShelf, onSelectDeliveryTable, onAddDeliveryTable, onAddSku, onEditSku, onDeleteSku }: { state: WarehouseState; onSelectSlot: (slot: Slot) => void; onSelectShelf: (id: number) => void; onAddShelf: () => void; onSelectDeliveryTable: (id: number) => void; onAddDeliveryTable: () => void; onAddSku: () => void; onEditSku: (sku: string) => void; onDeleteSku: (sku: string, itemCount: number) => void }) {
   const [shelfListOpen, setShelfListOpen] = useState(true)
   const [deliveryTableListOpen, setDeliveryTableListOpen] = useState(true)
   const [skuLegendOpen, setSkuLegendOpen] = useState(true)
@@ -369,7 +375,7 @@ function Overview({ state, onSelectSlot, onSelectShelf, onAddShelf, onSelectDeli
     </button><button className="icon-button sku-add-button" title="新增 SKU" onClick={onAddSku}><Plus size={15} /></button></div>
     {skuLegendOpen && <div className="sku-summary" aria-label="SKU 图例列表">{state.skus.map((sku, index) => {
       const itemCount = state.slots.filter((slot) => slot.expected_sku === sku.sku || slot.actual_sku === sku.sku).length
-      return <div className="sku-row" key={sku.sku}><span className="sku-swatch" style={{ backgroundColor: skuColor(index) }} /><strong>{sku.sku}</strong><small>{itemCount} 个引用</small>{sku.sku !== 'unknown' && <button className="icon-button sku-delete-button" title={`删除 ${sku.sku}`} onClick={() => onDeleteSku(sku.sku, itemCount)}><Trash2 size={14} /></button>}</div>
+      return <div className="sku-row" key={sku.sku}><span className="sku-swatch" style={{ backgroundColor: skuColor(index) }} /><strong>{sku.sku}</strong><small>{itemCount} 个引用</small><button className="icon-button" title={`编辑 ${sku.sku}`} onClick={() => onEditSku(sku.sku)}><Pencil size={14} /></button>{sku.sku !== 'unknown' && <button className="icon-button sku-delete-button" title={`删除 ${sku.sku}`} onClick={() => onDeleteSku(sku.sku, itemCount)}><Trash2 size={14} /></button>}</div>
     })}</div>}
   </div>
 }
@@ -422,12 +428,12 @@ function DeliveryTableEditor({ draft, onChange, onSave, onDelete, onClose }: { d
   </>
 }
 
-function SkuEditor({ draft, onChange, onSave, onClose }: { draft: SkuDraft; onChange: (value: SkuDraft) => void; onSave: () => void; onClose: () => void }) {
+function SkuEditor({ draft, existing, onChange, onSave, onClose }: { draft: SkuDraft; existing: boolean; onChange: (value: SkuDraft) => void; onSave: () => void; onClose: () => void }) {
   const set = <K extends keyof SkuDraft>(key: K, value: SkuDraft[K]) => onChange({ ...draft, [key]: value })
   return <>
-    <PanelHeader icon={<Box size={19} />} title="新增 SKU" eyebrow="SKU CATALOG" action={<button className="icon-button" title="返回总览" onClick={onClose}><X size={17} /></button>} />
-    <div className="field-grid"><Field label="SKU 名称" value={draft.sku} onChange={(value) => set('sku', value)} wide /><Field label="分类（可选）" value={draft.category} onChange={(value) => set('category', value)} /><Field label="网格文件（可选）" value={draft.mesh_file} onChange={(value) => set('mesh_file', value)} wide /><Field label="纹理文件（可选）" value={draft.tex_file} onChange={(value) => set('tex_file', value)} wide /></div>
-    <div className="panel-actions"><button className="primary-button" onClick={onSave}><Save size={16} />创建 SKU</button></div>
+    <PanelHeader icon={<Box size={19} />} title={existing ? '编辑 SKU' : '新增 SKU'} eyebrow="SKU CATALOG" action={<button className="icon-button" title="返回总览" onClick={onClose}><X size={17} /></button>} />
+    <div className="field-grid"><Field label="SKU 名称" value={draft.sku} onChange={(value) => set('sku', value)} readOnly={existing} wide /><Field label="分类（可选）" value={draft.category} onChange={(value) => set('category', value)} /><Field label="网格文件（可选）" value={draft.mesh_file} onChange={(value) => set('mesh_file', value)} wide /><Field label="纹理文件（可选）" value={draft.tex_file} onChange={(value) => set('tex_file', value)} wide /><Field label="OWLv2 英文提示词" value={draft.owlv2_prompt} onChange={(value) => set('owlv2_prompt', value)} wide /></div>
+    <div className="panel-actions"><button className="primary-button" onClick={onSave}><Save size={16} />{existing ? '保存 SKU' : '创建 SKU'}</button></div>
   </>
 }
 
@@ -477,7 +483,7 @@ function SlotEditor({ draft, skus, worldPosition, onChange, onSave, onTake, onRe
   </>
 }
 
-function Field({ label, value, onChange, wide = false }: { label: string; value: string | number; onChange: (value: string) => void; wide?: boolean }) { return <label className={`field ${wide ? 'wide' : ''}`}><span>{label}</span><input value={value} onChange={(event) => onChange(event.target.value)} /></label> }
+function Field({ label, value, onChange, wide = false, readOnly = false }: { label: string; value: string | number; onChange: (value: string) => void; wide?: boolean; readOnly?: boolean }) { return <label className={`field ${wide ? 'wide' : ''}`}><span>{label}</span><input value={value} readOnly={readOnly} onChange={(event) => onChange(event.target.value)} /></label> }
 
 function ReadonlyField({ label, value, wide = false }: { label: string; value: string | number; wide?: boolean }) { return <label className={`field ${wide ? 'wide' : ''}`}><span>{label}</span><input value={value} readOnly /></label> }
 

@@ -150,18 +150,18 @@ POST /api/sku-query
 {
   "image_data": "data:image/jpeg;base64,/9j/...",
   "query": "康师傅白桃",
-  "provider": "ark",
-  "model": "doubao-seed-2-1-pro-260628",
+  "provider": "local",
   "debug": false,
   "config": {
     "max_boxes": 1,
     "dino_fallback": false,
-    "dino_confidence_threshold": 0.72
+    "dino_confidence_threshold": 0.72,
+    "owlv2_score_threshold": 0.10
   }
 }
 ```
 
-`query` 必须是已有 SKU 或已有 `slot_id`。服务端从该 slot 的 `data/item_images/{slot_id}/0.png` 读取参考商品图。`provider` 只能是 `ark`、`siliconflow` 或 `dashscope`。`model` 必填。
+`query` 必须是已有 SKU 或已有 `slot_id`。输入 `slot_id` 时直接使用其 `data/item_images/{slot_id}/0.png`；输入 SKU 时，优先选择 `expected_sku == actual_sku == query` 且已有裁剪图的正常 slot，再按 `slot_id` 选择；没有正常样本才回退到其他有图的应摆 slot。`provider` 可以是 `ark`、`siliconflow`、`dashscope` 或 `local`。云端来源时 `model` 必填；`local` 固定使用 `google/owlv2-large-patch14-ensemble`，忽略 `model`，并要求 SKU 的 `owlv2_prompt` 已审核且非空。`owlv2_score_threshold` 先过滤 OWLv2 候选；未开启 `dino_fallback` 时直接返回 OWLv2 前 `max_boxes` 个框，开启后会让所有 OWLv2 候选进入 DINO 参考图相似度排序，再返回 DINO 前 `max_boxes` 个框。
 
 成功返回 `201 Created`：
 
@@ -171,9 +171,8 @@ POST /api/sku-query
     "query": "康师傅白桃",
     "reference_slot_id": "3-0-2-43",
     "sku": "康师傅白桃",
-    "provider": "ark",
-    "model": "doubao-seed-2-1-pro-260628",
-    "request_id": "request-id",
+    "provider": "local",
+    "model": "google/owlv2-large-patch14-ensemble",
     "request_seconds": 0.82,
     "total_seconds": 0.88,
     "detected_boxes": [
@@ -188,7 +187,7 @@ POST /api/sku-query
 }
 ```
 
-`pixels` 的顺序是 `[x1, y1, x2, y2]`。`debug=false` 不创建运行目录或图片文件。
+`pixels` 的顺序是 `[x1, y1, x2, y2]`。本地生产模式还返回轻量的 `owlv2_scores`，开启 DINO 后也返回 `dino_scores`，供机器人对最终框取置信度；`debug=false` 不创建运行目录或图片文件。
 
 ## 坐标与库存查询
 

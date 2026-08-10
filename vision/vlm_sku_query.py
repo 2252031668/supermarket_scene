@@ -153,6 +153,32 @@ def request_ark(content: list[dict[str, Any]], model: str, max_tokens: int) -> P
     return ProviderResponse("ark", model, response_content, getattr(response, "id", None), usage, time.perf_counter() - started)
 
 
+def generate_owlv2_prompt(sku: str, image_sources: list[Path | bytes], model: str = DEFAULT_MODEL) -> str:
+    """Draft one short, reviewable English OWLv2 text query from normal SKU crops."""
+    if not 1 <= len(image_sources) <= 3:
+        raise ValueError("Provide one to three normal SKU crops")
+    content: list[dict[str, Any]] = [
+        {"type": "text", "text": (
+            f"中文 SKU 名称是“{sku}”。以下 1-3 张图片是同一 SKU 的正常商品裁剪图。"
+            "OWLv2 的原始定义是用自由文本对象描述作为检测查询，论文训练时使用图像关联文字的 N-gram。"
+            "请以图片中可见的商品外观为主要依据，中文 SKU 名称只用于辅助消歧，不要把它当作检索词。"
+            "禁止把中文名称直译、拼音化或音译成英文；例如不要输出 Xingmu。"
+            "只输出一条适合 OWLv2 开放目标检测的简短英文对象描述，总长度为 2-10 个英文词；"
+            "描述最有区分度的品类、包装形态、主色和图片中确实可见的品牌或口味特征。"
+            "如果品牌文字不可读或没有稳定视觉特征，就使用通用英文商品描述，不要猜品牌。"
+            "不要输出句子、提示模板、a photo of、数量、位置、背景、价格、促销语或推测信息。"
+            "不要解释、不要 Markdown、不要中文、不要换行、不要句号。"
+        )},
+    ]
+    for source in image_sources:
+        image_url, _metadata = image_data_url(source, 560)
+        content.append({"type": "image_url", "image_url": {"url": image_url}})
+    prompt = request_ark(content, model, 96).content.strip().strip("`\"'")
+    if not prompt or "\n" in prompt or len(prompt) > 120 or prompt.lower().startswith("a photo of "):
+        raise RuntimeError("Ark did not return one concise OWLv2 object description")
+    return prompt
+
+
 def request_siliconflow(content: list[dict[str, Any]], model: str, max_tokens: int) -> ProviderResponse:
     api_key = require_api_key("siliconflow", "SILICONFLOW_API_KEY")
     payload = {

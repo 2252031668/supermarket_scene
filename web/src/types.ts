@@ -49,6 +49,7 @@ export type Sku = {
   category: string
   mesh_file: string
   tex_file: string
+  owlv2_prompt: string
 }
 
 export type SlotStatus = '正常' | '缺货' | '摆放错误'
@@ -114,10 +115,11 @@ export type SkuQueryConfig = {
   max_boxes: number
   dino_fallback: boolean
   dino_confidence_threshold: number
+  owlv2_score_threshold: number
 }
 
 export type SkuQueryReport = {
-  run_id: string
+  run_id?: string
   query: string
   sku: string
   reference_slot_id: string
@@ -125,12 +127,14 @@ export type SkuQueryReport = {
   model: string
   request_seconds: number
   total_seconds: number
-  raw_response: string
-  vlm_detected_boxes: SkuQueryBox[]
+  raw_response?: string
+  vlm_detected_boxes?: SkuQueryBox[]
+  owlv2_detected_boxes?: SkuQueryBox[]
   detected_boxes: SkuQueryBox[]
-  dino_scores: { index: number; confidence: number }[]
-  config: SkuQueryConfig
-  artifacts: Record<string, string>
+  owlv2_scores?: { index: number; confidence: number }[]
+  dino_scores?: { index: number; confidence: number }[]
+  config?: SkuQueryConfig
+  artifacts?: Record<string, string>
 }
 
 export type ImageStitchReport = {
