@@ -1,0 +1,65 @@
+sample_name: 左斜下3
+annotation: 左斜向下姿态3，多层货架；启动稳定后重采
+combined_file: 左斜下3.png
+color:
+  file: 左斜下3_rgb.png
+  encoding: bgr8
+  width: 1280
+  height: 720
+  stamp_sec: 1786604820
+  stamp_nanosec: 384334717
+depth:
+  file: 左斜下3_depth_raw.png
+  visualization_file: 左斜下3_depth_color.png
+  encoding: 16UC1
+  unit: millimeter
+  visualization_range_m:
+  - 0.0
+  - 2.0
+  outside_visualization_range: black
+  width: 1280
+  height: 720
+  stamp_sec: 1786604820
+  stamp_nanosec: 451048340
+camera_info:
+  frame_id: camera_color_optical_frame
+  distortion_model: plumb_bob
+  d:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  k:
+  - 905.841796875
+  - 0.0
+  - 638.0394287109375
+  - 0.0
+  - 905.4683837890625
+  - 384.9830322265625
+  - 0.0
+  - 0.0
+  - 1.0
+  r:
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
+  p:
+  - 905.841796875
+  - 0.0
+  - 638.0394287109375
+  - 0.0
+  - 0.0
+  - 905.4683837890625
+  - 384.9830322265625
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
+  - 0.0
