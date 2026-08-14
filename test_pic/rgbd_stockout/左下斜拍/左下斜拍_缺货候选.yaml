@@ -1,0 +1,83 @@
+mode: multi_shelf_plane_3d
+relative_setback_threshold_mm: 60.0
+dynamic_baseline_method: median_of_frontmost_half_per_shelf
+shelves:
+- shelf_index: 1
+  geometry:
+    left_x: 214
+    right_x: 1279
+    surface_y: 477
+    goods_top_y: 283
+    surface_slope_px_per_pixel: 0.027408064211231015
+    surface_intercept_px: 459.4404429180984
+    lower_edge_slope_px_per_pixel: 0.04845573654917762
+    lower_edge_intercept_px: 508.16214296318566
+    lower_edge_depth_jump_mm: 342.0
+    lower_edge_depth_support_ratio: 0.776
+    goods_height_px: 194
+  shelf_front_depth_model:
+    normal_x: 0.26049195882541337
+    normal_y: -0.009385611922731019
+    normal_z: 0.9654303960804916
+    offset_mm: -545.8262256570437
+    sample_count: 37778
+    residual_rms_mm: 1.8290193613804502
+  dynamic_baseline_setback_mm: -20.4
+  detected_group_count: 2
+  product_groups:
+  - shelf_index: 1
+    group_index: 1
+    x_min: 400
+    y_min: 277
+    x_max: 503
+    y_max: 464
+    status: normal
+    closest_item_setback_mm: -20.4
+    shelf_baseline_setback_mm: -20.4
+    setback_mm: 0.0
+  - shelf_index: 1
+    group_index: 2
+    x_min: 1058
+    y_min: 295
+    x_max: 1190
+    y_max: 470
+    status: normal
+    closest_item_setback_mm: -10.5
+    shelf_baseline_setback_mm: -20.4
+    setback_mm: 9.9
+skipped_shelves:
+- location: top
+  reason: shelf_front_clipped_by_image_boundary
+  approximate_y: 0
+- location: bottom
+  reason: products_visible_but_shelf_front_outside_image
+  approximate_y: 719
+product_groups:
+- shelf_index: 1
+  group_index: 1
+  x_min: 400
+  y_min: 277
+  x_max: 503
+  y_max: 464
+  status: normal
+  closest_item_setback_mm: -20.4
+  shelf_baseline_setback_mm: -20.4
+  setback_mm: 0.0
+- shelf_index: 1
+  group_index: 2
+  x_min: 1058
+  y_min: 295
+  x_max: 1190
+  y_max: 470
+  status: normal
+  closest_item_setback_mm: -10.5
+  shelf_baseline_setback_mm: -20.4
+  setback_mm: 9.9
+limitations:
+- The shelf-front plane must be visible enough for a stable 3D fit.
+- Each decision compares the closest RGB-D product instance with a robust normal-front
+  baseline from the same shelf.
+- Every shelf front is fitted independently; normals are not shared.
+- A clipped level is skipped when its own shelf front is not visible; another level
+  plane is never reused for it.
+- Errors in closest-product segmentation can affect the group status.
