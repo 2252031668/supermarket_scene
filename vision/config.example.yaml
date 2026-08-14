@@ -20,3 +20,20 @@ sku_query:
   dino_fallback: false
   dino_confidence_threshold: 0.72
   owlv2_score_threshold: 0.10
+
+rgbd_stockout:
+  setback_threshold_mm: 60.0
+  dino_accept_score: 0.80
+  dino_accept_margin: 0.05
+  dino_top_k: 3
+  qwen_model_dir: vision/models/Qwen3.5-4B
+  qwen_max_new_tokens: 48
+
+rgb_misplacement:
+  minimum_confidence: 0.70
+  dino_accept_score: 0.80
+  dino_accept_margin: 0.05
+  dino_top_k: 3
+  qwen_model_dir: vision/models/Qwen3.5-4B
+  qwen_max_new_tokens: 48
+  qwen_detector_max_new_tokens: 384

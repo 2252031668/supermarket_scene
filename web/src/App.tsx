@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Box, Boxes, ChevronDown, ChevronRight, Eye, Images, Layers3, LoaderCircle, Map, PackageCheck, PackageMinus, PackagePlus, Pencil, Plus, RefreshCw, Save, ScanLine, Search, Table2, Trash2, Upload, X } from 'lucide-react'
+import { Box, Boxes, ChevronDown, ChevronRight, Eye, Images, Layers3, LoaderCircle, Map, PackageCheck, PackageMinus, PackagePlus, Pencil, Plus, RefreshCw, Save, ScanLine, Search, Table2, Trash2, Trophy, Upload, X } from 'lucide-react'
 import { WarehouseScene } from './WarehouseScene'
 import { ManualImportPage } from './ManualImportPage'
 import { VisionInspectionPage } from './VisionInspectionPage'
+import { RgbdStockoutPage } from './RgbdStockoutPage'
 import { SkuQueryPage } from './SkuQueryPage'
 import { ImageStitchPage } from './ImageStitchPage'
 import { skuColor } from './skuColors'
@@ -53,6 +54,7 @@ export function App() {
   const [slotWorldPosition, setSlotWorldPosition] = useState<SlotWorldPosition | null>(null)
   const [manualImport, setManualImport] = useState(false)
   const [visionInspection, setVisionInspection] = useState(false)
+  const [rgbdStockout, setRgbdStockout] = useState(false)
   const [skuQuery, setSkuQuery] = useState(false)
   const [imageStitch, setImageStitch] = useState(false)
   const [manualImportImage, setManualImportImage] = useState<string | null>(null)
@@ -279,6 +281,7 @@ export function App() {
 
   if (manualImport) return <ManualImportPage state={state} initialImageUrl={manualImportImage ?? undefined} onBack={() => { setManualImport(false); setManualImportImage(null) }} onImported={(next) => setState(next)} />
   if (visionInspection) return <VisionInspectionPage onBack={() => setVisionInspection(false)} onApplied={(next) => setState(next)} />
+  if (rgbdStockout) return <RgbdStockoutPage onBack={() => setRgbdStockout(false)} />
   if (skuQuery) return <SkuQueryPage state={state} onBack={() => setSkuQuery(false)} />
   if (imageStitch) return <ImageStitchPage onBack={() => setImageStitch(false)} onUseForImport={(url) => { setManualImportImage(url); setImageStitch(false); setManualImport(true) }} />
 
@@ -294,6 +297,7 @@ export function App() {
           <button className="refresh-button" title="重新读取数据库" onClick={() => void refresh(true)}><RefreshCw size={16} className={loading ? 'spin' : ''} /><span>刷新数据</span></button>
           <button className="manual-entry-button" title="通过照片人工批量录入商品" onClick={() => setManualImport(true)}><Upload size={16} /><span>人工批量录入</span></button>
           <button className="manual-entry-button" title="上传局部照片并识别异常货位" onClick={() => setVisionInspection(true)}><ScanLine size={16} /><span>巡检识别</span></button>
+          <button className="manual-entry-button" title="测试样本中的 RGB-D 后排缺货识别" onClick={() => setRgbdStockout(true)}><Trophy size={16} /><span>比赛巡检</span></button>
           <button className="manual-entry-button" title="用 SKU 或固定位置 ID 在局部照片中查询商品" onClick={() => setSkuQuery(true)}><Search size={16} /><span>货物查询</span></button>
           <button className="manual-entry-button" title="拼接多张同一货架面的局部照片" onClick={() => setImageStitch(true)}><Images size={16} /><span>图片拼接</span></button>
         </div>

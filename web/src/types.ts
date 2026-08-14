@@ -149,6 +149,39 @@ export type ImageStitchReport = {
   artifacts: Record<string, string>
 }
 
+export type RgbdStockoutCandidate = {
+  shelf_index: number
+  group_index: number
+  sku: string | null
+  box: { x: number; y: number; width: number; height: number }
+  setback_mm: number
+  source: 'dino' | 'qwen' | 'unknown'
+  dino_matches: Array<{ sku: string; confidence: number }>
+}
+
+export type RgbdStockoutReport = {
+  run_id?: string
+  sample: string
+  candidates: RgbdStockoutCandidate[]
+  skipped_shelves: Array<{ location: string; reason: string; approximate_y: number }>
+  artifacts?: Record<string, string>
+}
+
+export type RgbMisplacementCandidate = {
+  box: { x: number; y: number; width: number; height: number }
+  confidence: number
+  reason: string
+  current_sku: string | null
+  source: 'dino' | 'qwen' | 'unknown'
+  dino_matches: Array<{ sku: string; confidence: number }>
+}
+
+export type RgbMisplacementReport = {
+  run_id?: string
+  candidates: RgbMisplacementCandidate[]
+  artifacts?: Record<string, string>
+}
+
 export type WarehouseState = {
   stats: { shelf_types: number; shelf_groups: number; delivery_tables: number; sku_catalog: number; total_positions: number; actual_items: number; shortages: number; misplacements: number }
   shelf_types: ShelfType[]

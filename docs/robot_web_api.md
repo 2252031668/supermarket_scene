@@ -21,6 +21,8 @@ Content-Type: application/json
 | 功能 | 请求 | 主要输入 | 成功返回 |
 | --- | --- | --- | --- |
 | 货架巡检 | `POST /api/vision/inspect` | `image_data`、可选 `config`、`debug` | `{"report":{"shelf_id":3,"face":0,"slots":[...]}}` |
+| RGB-D 测试样本 | `GET /api/rgbd-stockout/samples` | 无 | `{"samples":["正面图",...]}` |
+| RGB-D 比赛巡检 | `POST /api/rgbd-stockout/runs` | 样本目录名、`debug` | `{"report":{"candidates":[...]}}` |
 | 货物查询 | `POST /api/sku-query` | `image_data`、`query`、`provider`、`model`、可选 `config`、`debug` | `{"report":{"sku":"...","reference_slot_id":"...","detected_boxes":[...]}}` |
 | 查询 slot 坐标 | `GET /api/slots/{slot_id}/world-position` | URL 中的 `slot_id` | `{"slot":{...}}` |
 | 查询 SKU 位置 | `GET /api/skus/{sku}/world-positions` | URL 中的 SKU | `{"sku":"...","positions":[...]}` |
@@ -139,6 +141,26 @@ POST /api/vision/inspect
 `slots` 只包含异常位置。巡检不修改数据库；机器人完成物理操作后，必须调用取货、补货或修改货位接口。`bbox` 是配准后的有效重叠裁剪图的像素坐标，不是原始上传图坐标。
 
 `debug=false` 不创建运行目录、不保存图片、不写结果 JSON 或 VLM 原文。`debug=true` 仅用于 Web 审核流程，会生成 `run_id` 与调试产物。
+
+### RGB-D 比赛巡检（测试）
+
+比赛巡检不使用满货基准图。测试页面先调用 `GET /api/rgbd-stockout/samples`，只能选择项目内 `test_pic/rgbd_stockout/` 的直接子目录；浏览器不上传 RGB、深度或 metadata 文件。每个样本需要同名前缀的 `*_rgb.png`、`*_depth_raw.png`（16UC1 毫米）和 `*_metadata.yaml`（相机内参）。
+
+```json
+{"sample":"正面图","debug":false}
+```
+
+将该请求发送至 `POST /api/rgbd-stockout/runs`。深度算法定位第一排缺失后显露并后退的第二排商品框；DINO 对手机录入的商品裁剪图排名，首名分数至少 `0.80` 且领先第二名至少 `0.05` 时直接采用，否则本地 Qwen3.5-4B 在完整红框图和无分数 Top-3 SKU 参考板中选择。返回 `sku: null` 表示无法确定，不会猜测。该 API 始终只读，不会写入 `actual_sku`、SQLite 或货架校准 JSON。
+
+### RGB 异常摆放比赛巡检
+
+`POST /api/rgb-misplacement/runs` 接收一张局部 RGB 图：
+
+```json
+{"image_data":"data:image/jpeg;base64,/9j/...","debug":false}
+```
+
+本地 Qwen3.5-4B 观察完整图片，只框出同层连续同类商品序列中明显不同的商品。多数图片应返回空数组；服务端仅保留置信度至少 `0.70` 的前两个框。每个框用 DINO 识别 `current_sku`，DINO 排名不确定时再由 Qwen 在完整红框图和无分数 Top-3 SKU 参考板中选择。返回的每一项是 `box`、`current_sku | null`、`confidence`、`reason`、`source` 和 `dino_matches`；不推断应摆 SKU，不更新任何库存数据。
 
 ### 按 SKU 查询货物
 

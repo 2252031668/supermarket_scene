@@ -29,6 +29,23 @@ DEFAULT_SKU_QUERY_CONFIG = {
     "dino_confidence_threshold": 0.72,
     "owlv2_score_threshold": 0.10,
 }
+DEFAULT_RGBD_STOCKOUT_CONFIG = {
+    "setback_threshold_mm": 60.0,
+    "dino_accept_score": 0.80,
+    "dino_accept_margin": 0.05,
+    "dino_top_k": 3,
+    "qwen_model_dir": str(VISION_DIR / "models" / "Qwen3.5-4B"),
+    "qwen_max_new_tokens": 48,
+}
+DEFAULT_RGB_MISPLACEMENT_CONFIG = {
+    "minimum_confidence": 0.70,
+    "dino_accept_score": 0.80,
+    "dino_accept_margin": 0.05,
+    "dino_top_k": 3,
+    "qwen_model_dir": str(VISION_DIR / "models" / "Qwen3.5-4B"),
+    "qwen_max_new_tokens": 48,
+    "qwen_detector_max_new_tokens": 384,
+}
 
 
 @lru_cache(maxsize=1)
@@ -105,6 +122,20 @@ def save_sku_query_config(sku_query: dict[str, Any]) -> dict[str, Any]:
     local_config.cache_clear()
     local_api_keys.cache_clear()
     return merged
+
+
+def get_rgbd_stockout_config() -> dict[str, Any]:
+    loaded = local_config().get("rgbd_stockout", {})
+    if not isinstance(loaded, dict):
+        raise RuntimeError(str(LOCAL_CONFIG_PATH) + ": rgbd_stockout must be a YAML mapping")
+    return {**DEFAULT_RGBD_STOCKOUT_CONFIG, **loaded}
+
+
+def get_rgb_misplacement_config() -> dict[str, Any]:
+    loaded = local_config().get("rgb_misplacement", {})
+    if not isinstance(loaded, dict):
+        raise RuntimeError(str(LOCAL_CONFIG_PATH) + ": rgb_misplacement must be a YAML mapping")
+    return {**DEFAULT_RGB_MISPLACEMENT_CONFIG, **loaded}
 
 
 def get_api_key(provider: str, environment_variable: str) -> str | None:

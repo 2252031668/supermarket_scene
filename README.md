@@ -48,6 +48,7 @@
 | [数据库与 API 文档](docs/database_schema_and_api.md) | SQLite 表结构、固定位置模型、校准 JSON 与世界坐标公式。 |
 | [HTTP Web API：请求参数与 JSON 返回](docs/robot_web_api.md) | `api_server.py` 的视觉识别、坐标查询、取放货和场景维护端点。 |
 | [ROS2 服务：输入参数与输出结构](docs/ros2_service_api.md) | 各 `.srv` 请求字段、各 `.msg` 返回字段、节点参数和机器人调用流程。 |
+| [比赛巡检 RGB-D 缺货复现与迁移](docs/competition_rgbd_stockout_reproduction.md) | 独立 RGB-D 缺货识别链路、采集、算法参数、SKU 检索和数据库关联。 |
 
 ## 使用方式
 
@@ -71,6 +72,7 @@ Web 与 ROS2 都读写 `shelf_inventory.db`。固定位置写入后会同步重�
 ├── vision/                   巡检、SKU 查询、图片拼接和共享视觉模块
 ├── robot_service.py          机器人直接调用的无传输层业务入口
 ├── ros2/
+│   ├── rgbd_capture/                 D435i RGB、深度和内参离线采集脚本
 │   ├── supermarket_scene_interfaces/  ROS2 msg/srv 接口包
 │   └── supermarket_scene_ros/         rclpy 服务节点包
 ├── mujoco/                   MuJoCo 场景生成器、MJCF 和模型资产
@@ -105,13 +107,13 @@ uv run python api_server.py
 
 首次启动会下载并加载 DINOv2 与 OWLv2 权重；本地 OWLv2 查询固定使用 `google/owlv2-large-patch14-ensemble`。
 
-`Qwen/Qwen3.5-9B` 目前只提供本地权重下载脚本，尚未接入查询路径：
+比赛巡检使用本地 `Qwen/Qwen3.5-4B`。RGB-D 缺货回合从项目内 `test_pic/rgbd_stockout/` 测试样本读取 RGB、深度和 metadata；异常摆放回合上传一张局部 RGB 图。
 
 ```bash
 uv run python vision/download_qwen35_modelscope.py
 ```
 
-脚本使用 ModelScope Python SDK 直连下载到 `vision/models/Qwen3.5-9B`，支持断点续传。
+脚本使用 ModelScope Python SDK 直连下载到 `vision/models/Qwen3.5-4B`，支持断点续传。
 
 在另一个终端启动网页：
 
@@ -127,10 +129,11 @@ npm run dev
 - **货架管理**：维护货架、交付桌、SKU 和固定货位，提供 2D/3D 视图。
 - **人工批量录入**：标定货架面、框选已有商品或空位，填写 `expected_sku` 与 `actual_sku` 后批量写入；导入审核可按 SKU 用最多三张最大正常裁剪图生成并编辑 OWLv2 英文自由文本对象描述。
 - **巡检识别**：上传局部货架照片，先用 SIFT 配准和 Lab 色彩距离筛选货位异常，再以 DINOv2 识别 SKU；可选 Ark VLM 保底。结果仅在点击“应用修改”后才更新数据库和 JSON。
+- **比赛巡检**：两个互斥回合。RGB-D 缺货回合从服务器预置 D435i 样本定位第一排缺失后暴露的后排商品；异常摆放回合上传一张局部 RGB 图，由本地 Qwen 识别连续同类商品序列中的明显异类（0 至 2 个）。两者均用 DINO 检索手机录入商品图，低置信度时由本地 Qwen 在无分数 Top-3 候选板复核。结果只读，不写库存状态。
 - **货物查询**：按 SKU 或固定位置查询局部照片中的目标货物，可使用 Ark 等 VLM，或本地 `google/owlv2-large-patch14-ensemble` 英文对象描述检索；输入 SKU 时优先选取正常 slot 的参考裁剪图，两条路径都可选 DINOv2 复核候选框。
 - **图片拼接**：上传同一货架面的 2 至 8 张重叠照片，手工选择主平面。后端对所有图片两两进行 SIFT/MAGSAC 匹配，拼接主图所在的可靠连通组；再用 GraphCut 接缝选择和三层多频段融合输出拼接图。结果可四点透视校正后下载，或直接送到人工批量录入。
 
-Web 对巡检和 SKU 查询固定传递 `debug: true`，结果保存在 `vision/output/`：巡检为 `slot_inspection/{run_id}/`，SKU 查询为 `vlm_sku_query/{run_id}/`，图片拼接为 `image_stitch/{run_id}/`。这些都是可删除的运行产物。其他 HTTP/ROS2 调用不传或传递 `debug: false` 时，巡检和 SKU 查询直接返回结果，不创建运行目录、不绘制图像或写入中间文件。
+Web 对巡检和 SKU 查询固定传递 `debug: true`，结果保存在 `vision/output/`：巡检为 `slot_inspection/{run_id}/`，SKU 查询为 `vlm_sku_query/{run_id}/`，图片拼接为 `image_stitch/{run_id}/`，RGB-D 缺货为 `rgbd_stockout/{run_id}/`，RGB 异常摆放为 `rgb_misplacement/{run_id}/`。这些都是可删除的运行产物。其他 HTTP/ROS2 调用不传或传递 `debug: false` 时，巡检和 SKU 查询直接返回结果，不创建运行目录、不绘制图像或写入中间文件。
 
 页面保存的巡检和 SKU 查询参数写入 `vision/config.local.yaml`。单次 API 请求可携带 `config` 覆盖本次运行参数，但不会回写本地配置。
 

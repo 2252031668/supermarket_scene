@@ -272,6 +272,7 @@ SQLite 是唯一可写业务真源。`data/shelf_calibration/{shelf_id}.json` �
 | `/api/health` | `{"ok": true}` | 服务健康检查 |
 | `/api/state` | 完整快照 | Web 使用，包含统计、货架、SKU、交付桌和所有 slot 世界坐标 |
 | `/api/vision/config` | 巡检配置对象 | 返回阈值和 Ark 保底配置，不返回密钥 |
+| `/api/rgbd-stockout/samples` | `{"samples":[...]}` | 返回服务器受控 RGB-D 测试样本目录名 |
 | `/api/sku-query/config` | SKU 查询配置对象 | 返回 `max_boxes`、DINO 保底和阈值 |
 | `/api/shortages` | `{"slots": [...]}` | `actual_sku IS NULL` 的位置，不含世界坐标 |
 | `/api/misplacements` | `{"slots": [...]}` | 实际 SKU 与预期 SKU 不同的位置，不含世界坐标 |
@@ -284,6 +285,7 @@ SQLite 是唯一可写业务真源。`data/shelf_calibration/{shelf_id}.json` �
 | `/api/vision/runs/{run_id}/artifact/{name}` | JSON 或 PNG | 读取巡检报告登记的调试产物 |
 | `/api/sku-query/runs/{run_id}/artifact/{name}` | JSON、文本或图片 | 读取 debug SKU 查询产物 |
 | `/api/image-stitch/runs/{run_id}/artifact/{name}` | PNG | 读取图片拼接产物 |
+| `/api/rgbd-stockout/runs/{run_id}/artifact/{name}` | JSON 或 PNG | 读取 RGB-D 巡检 debug 产物 |
 
 #### POST
 
@@ -299,6 +301,7 @@ SQLite 是唯一可写业务真源。`data/shelf_calibration/{shelf_id}.json` �
 | `/api/sku-prompts/owlv2` | `requests: [{sku, images: [data_url, ...]}]`，每项 1 至 3 张正常裁剪图 | `{"drafts": [{"sku": "...", "owlv2_prompt": "..."}]}`；只生成草稿，不写数据库 |
 | `/api/grounding/products` | `image_data` | `{"boxes": [...], "detected": number}` |
 | `/api/vision/inspect` | `image_data`、可选 `config`、`debug` | `{"report": InspectionReport}`，状态不写数据库 |
+| `/api/rgbd-stockout/runs` | `sample`、`debug` | `{"report": RgbdStockoutReport}`，状态不写数据库 |
 | `/api/sku-query` | `image_data`、`query`、`provider`、`model`、可选 `config`、`debug` | `{"report": SkuQueryReport}`；`provider=local` 固定使用 OWLv2，忽略 `model`，要求 SKU 已有非空 `owlv2_prompt` |
 | `/api/image-stitch` | `images`（2 至 8 张）、可选 `main_index` | `{"report": ImageStitchReport}` |
 | `/api/image-stitch/runs/{run_id}/rectify` | `points` 四点数组 | `{"report": ImageStitchReport}` |
@@ -357,6 +360,14 @@ sku_query:
 `sku_catalog.owlv2_prompt` 是人工可编辑的英文自由文本商品对象描述，供 OWLv2 开放目标检测使用。人工批量导入页会对每个 SKU 从 `actual_sku == expected_sku` 的正常裁剪图中按面积选最多三张，请 Ark 只生成草稿；只有最终导入或 SKU 编辑保存才会写入数据库。提示词为空不会影响人工录入或云端 VLM 查询，但本地 `provider=local` 会明确拒绝该 SKU。以 SKU 查询时，参考图优先取 `expected_sku == actual_sku == query` 且已有裁剪图的正常 slot；无正常样本时才回退到其他有图的应摆 slot。
 
 未开启 Ark 保底时，DINO 低于置信度阈值会返回 `actual_sku=null`；开启后交给 Ark 判断，Ark 无法判断时同样按缺货处理。巡检结果只有在调用 `/api/vision/runs/{run_id}/apply` 后才会更新数据库；`debug=false` 没有运行记录，不能调用 `apply`。
+
+### RGB-D 比赛巡检（测试）
+
+`GET /api/rgbd-stockout/samples` 列出项目内 `test_pic/rgbd_stockout/` 下完整的受控样本目录。`POST /api/rgbd-stockout/runs` 只接收该目录名和 `debug`，服务端读取同步 RGB、16UC1 深度和相机内参。深度算法输出后退商品框；DINO 使用人工手机录入保存的 SKU 裁剪图排序，低置信度时本地 Qwen3.5-4B 只在无分数 Top-3 候选中复核。结果中的 `sku: null` 表示未知，运行不会修改数据库。
+
+### RGB 异常摆放比赛巡检
+
+`POST /api/rgb-misplacement/runs` 接收一个局部 RGB Data URL。完整图先由本地 Qwen3.5-4B 检测零至两个明显破坏同层连续商品序列的异类商品。服务端验证模型框，丢弃低于 `0.70` 的置信度，并只保留最高两个；DINO 和必要时的 Qwen Top-3 复核确定 `current_sku`。报告只含异常框、当前 SKU、置信度、原因和来源；它不推断应摆 SKU，不写数据库。
 
 ### 3.4 货架面原图文件
 

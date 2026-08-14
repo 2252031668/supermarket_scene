@@ -24,10 +24,14 @@ from PIL import Image
 from vision.ark_grounding import build_prompt, extract_boxes, request_grounding_bytes
 from vision.config import (
     get_inspection_config,
+    get_rgb_misplacement_config,
+    get_rgbd_stockout_config,
     get_sku_query_config,
     save_inspection_config,
     save_sku_query_config,
 )
+from vision.rgbd_stockout_sku import run_rgbd_stockout
+from vision.rgb_misplacement import run_rgb_misplacement
 from vision.cv_restock_position import run_inspection
 from vision.dino import preload_dino
 from vision.owlv2 import preload_owlv2, run_owlv2_sku_query
@@ -46,6 +50,9 @@ SHELF_IMAGES_DIR = os.path.join(BASE_DIR, "data", "shelf_images")
 VISION_OUTPUT_DIR = Path(BASE_DIR) / "vision" / "output" / "slot_inspection"
 SKU_QUERY_OUTPUT_DIR = Path(BASE_DIR) / "vision" / "output" / "vlm_sku_query"
 IMAGE_STITCH_OUTPUT_DIR = Path(BASE_DIR) / "vision" / "output" / "image_stitch"
+RGBD_SAMPLE_ROOT = Path(BASE_DIR) / "test_pic" / "rgbd_stockout"
+RGBD_OUTPUT_DIR = Path(BASE_DIR) / "vision" / "output" / "rgbd_stockout"
+RGB_MISPLACEMENT_OUTPUT_DIR = Path(BASE_DIR) / "vision" / "output" / "rgb_misplacement"
 JSON_SYNC_LOCK = threading.RLock()
 
 
@@ -129,6 +136,35 @@ def read_debug(payload):
     if not isinstance(debug, bool):
         raise ValueError("debug must be a boolean")
     return debug
+
+
+def rgbd_sample_directory(sample: str) -> Path:
+    if not re.fullmatch(r"[\w\u4e00-\u9fff-]{1,80}", sample):
+        raise ValueError("Invalid RGB-D sample name")
+    root = RGBD_SAMPLE_ROOT.resolve()
+    directory = (root / sample).resolve()
+    if directory.parent != root or not directory.is_dir():
+        raise FileNotFoundError("RGB-D sample not found")
+    return directory
+
+
+def list_rgbd_samples() -> list[str]:
+    if not RGBD_SAMPLE_ROOT.is_dir():
+        return []
+    samples = []
+    for directory in RGBD_SAMPLE_ROOT.iterdir():
+        if not directory.is_dir():
+            continue
+        prefixes = {path.name.removesuffix("_rgb.png") for path in directory.glob("*_rgb.png")}
+        if any((directory / f"{prefix}_depth_raw.png").is_file() and (directory / f"{prefix}_metadata.yaml").is_file() for prefix in prefixes):
+            samples.append(directory.name)
+    return sorted(samples)
+
+
+def rgbd_run_identifier(run_id: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", run_id):
+        raise ValueError("Invalid RGB-D run ID")
+    return run_id
 
 
 def inspection_config(payload):
@@ -295,6 +331,49 @@ class ApiHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/api/health":
             self.send_json({"ok": True})
+        elif path == "/api/rgbd-stockout/samples":
+            self.send_json({"samples": list_rgbd_samples()})
+        elif path.startswith("/api/rgbd-stockout/runs/") and "/artifact/" in path:
+            prefix, artifact_name = path.split("/artifact/", 1)
+            run_id = rgbd_run_identifier(prefix[len("/api/rgbd-stockout/runs/"):].strip("/"))
+            run_dir = RGBD_OUTPUT_DIR / run_id
+            result_path = run_dir / "result.json"
+            if not result_path.is_file():
+                self.send_json({"error": "RGB-D run not found"}, HTTPStatus.NOT_FOUND)
+                return
+            report = json.loads(result_path.read_text(encoding="utf-8"))
+            artifact_name = unquote(artifact_name)
+            if artifact_name not in set(report.get("artifacts", {}).values()):
+                self.send_json({"error": "Artifact not found"}, HTTPStatus.NOT_FOUND)
+                return
+            artifact = (run_dir / artifact_name).resolve()
+            if not artifact.is_relative_to(run_dir.resolve()) or not artifact.is_file():
+                self.send_json({"error": "Artifact not found"}, HTTPStatus.NOT_FOUND)
+                return
+            content_type = {
+                ".json": "application/json; charset=utf-8",
+                ".txt": "text/plain; charset=utf-8",
+            }.get(artifact.suffix.lower(), "image/png")
+            self.send_file(artifact, content_type)
+        elif path.startswith("/api/rgb-misplacement/runs/") and "/artifact/" in path:
+            prefix, artifact_name = path.split("/artifact/", 1)
+            run_id = rgbd_run_identifier(prefix[len("/api/rgb-misplacement/runs/"):].strip("/"))
+            run_dir = RGB_MISPLACEMENT_OUTPUT_DIR / run_id
+            result_path = run_dir / "result.json"
+            if not result_path.is_file():
+                self.send_json({"error": "RGB misplacement run not found"}, HTTPStatus.NOT_FOUND)
+                return
+            report = json.loads(result_path.read_text(encoding="utf-8"))
+            artifact_name = unquote(artifact_name)
+            if artifact_name not in set(report.get("artifacts", {}).values()):
+                self.send_json({"error": "Artifact not found"}, HTTPStatus.NOT_FOUND)
+                return
+            artifact = (run_dir / artifact_name).resolve()
+            if not artifact.is_relative_to(run_dir.resolve()) or not artifact.is_file():
+                self.send_json({"error": "Artifact not found"}, HTTPStatus.NOT_FOUND)
+                return
+            content_type = {".json": "application/json; charset=utf-8", ".txt": "text/plain; charset=utf-8"}.get(artifact.suffix.lower(), "image/png")
+            self.send_file(artifact, content_type)
         elif path == "/api/state":
             self.send_json(snapshot())
         elif path == "/api/vision/config":
@@ -321,7 +400,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": "Artifact not found"}, HTTPStatus.NOT_FOUND)
                 return
             artifact = (run_dir / artifact_name).resolve()
-            if artifact.parent != run_dir.resolve() or not artifact.is_file():
+            if not artifact.is_relative_to(run_dir.resolve()) or not artifact.is_file():
                 self.send_json({"error": "Artifact not found"}, HTTPStatus.NOT_FOUND)
                 return
             content_type = "application/json; charset=utf-8" if artifact.suffix == ".json" else "image/png"
@@ -699,6 +778,38 @@ class ApiHandler(BaseHTTPRequestHandler):
         report = run_inspection(current_image, config, run_dir, debug=debug)
         self.send_json({"report": report}, HTTPStatus.CREATED)
 
+    def _run_rgbd_stockout(self, payload):
+        sample = str(payload.get("sample", "")).strip()
+        directory = rgbd_sample_directory(sample)
+        debug = read_debug(payload)
+        output_dir = RGBD_OUTPUT_DIR / uuid.uuid4().hex if debug else None
+        report = run_rgbd_stockout(
+            directory, DB_PATH, ITEM_IMAGES_DIR, get_rgbd_stockout_config(), output_dir=output_dir, debug=debug
+        )
+        self.send_json({"report": report}, HTTPStatus.CREATED)
+
+    def _run_rgb_misplacement(self, payload):
+        image_data = str(payload.get("image_data", ""))
+        if not image_data.startswith("data:image/") or ";base64," not in image_data:
+            raise ValueError("image_data must be a base64-encoded JPEG, PNG, or WebP image")
+        prefix, encoded = image_data.split(",", 1)
+        image_type = prefix.removeprefix("data:").removesuffix(";base64")
+        if image_type not in {"image/jpeg", "image/png", "image/webp"}:
+            raise ValueError("Only JPEG, PNG, and WebP photos are supported")
+        try:
+            image_bytes = base64.b64decode(encoded, validate=True)
+            rgb = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
+        except (ValueError, binascii.Error) as error:
+            raise ValueError("image_data is not a valid image") from error
+        if not image_bytes or len(image_bytes) > 12 * 1024 * 1024 or rgb is None:
+            raise ValueError("Photo must be between 1 byte and 12 MB")
+        debug = read_debug(payload)
+        output_dir = RGB_MISPLACEMENT_OUTPUT_DIR / uuid.uuid4().hex if debug else None
+        report = run_rgb_misplacement(
+            rgb, DB_PATH, ITEM_IMAGES_DIR, get_rgb_misplacement_config(), output_dir=output_dir, debug=debug
+        )
+        self.send_json({"report": report}, HTTPStatus.CREATED)
+
     def _run_sku_query(self, payload):
         image_data = str(payload.get("image_data", ""))
         if not image_data.startswith("data:image/") or ";base64," not in image_data:
@@ -855,7 +966,7 @@ class ApiHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = urlparse(self.path).path
         try:
-            payload = self.read_json(96 * 1024 * 1024 if path == "/api/image-stitch" else 20 * 1024 * 1024 if path in {"/api/imports/manual", "/api/grounding/products", "/api/vision/inspect", "/api/sku-query", "/api/sku-prompts/owlv2"} else 64 * 1024)
+            payload = self.read_json(96 * 1024 * 1024 if path == "/api/image-stitch" else 20 * 1024 * 1024 if path in {"/api/imports/manual", "/api/grounding/products", "/api/vision/inspect", "/api/sku-query", "/api/sku-prompts/owlv2", "/api/rgb-misplacement/runs"} else 64 * 1024)
             if path == "/api/shelves":
                 with ShelfDatabase(DB_PATH) as db:
                     shelf_id = db.add_shelf_group(
@@ -947,6 +1058,12 @@ class ApiHandler(BaseHTTPRequestHandler):
                 return
             if path == "/api/vision/inspect":
                 self._run_vision_inspection(payload)
+                return
+            if path == "/api/rgbd-stockout/runs":
+                self._run_rgbd_stockout(payload)
+                return
+            if path == "/api/rgb-misplacement/runs":
+                self._run_rgb_misplacement(payload)
                 return
             if path == "/api/sku-query":
                 self._run_sku_query(payload)

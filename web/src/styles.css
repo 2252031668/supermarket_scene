@@ -252,6 +252,20 @@ button { cursor: pointer; }
 .inspection-actions { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
 .inspection-actions .secondary-button, .inspection-actions .primary-button { flex: 0 0 auto; min-height: 32px; }
 .inspection-table tr.inspection-selected { background: #f0fbf8; }
+.rgbd-page { min-height: 100vh; background: #edf2f2; color: #1f3339; }
+.rgbd-tabs { display: flex; gap: 0; padding: 12px 18px 0; background: #edf2f2; }
+.rgbd-tabs button { min-width: 112px; height: 32px; border: 1px solid #c5d4d6; border-radius: 0; background: #f7faf9; color: #587176; font-size: 12px; font-weight: 700; }
+.rgbd-tabs button:first-child { border-radius: 4px 0 0 4px; }
+.rgbd-tabs button:last-child { border-left: 0; border-radius: 0 4px 4px 0; }
+.rgbd-tabs button.active { background: #167f78; border-color: #167f78; color: #fff; }
+.rgbd-explain { display: grid; gap: 5px; margin: 14px 0; padding: 10px; border-left: 3px solid #2b9b91; background: #eff8f7; color: #4a736f; font-size: 11px; line-height: 16px; }
+.rgbd-review { padding-top: 14px; }
+.rgbd-table { min-width: 680px; }
+.rgbd-source { display: inline-flex; min-width: 48px; justify-content: center; padding: 3px 6px; border-radius: 3px; font-size: 10px; font-weight: 750; }
+.rgbd-source-dino { background: #e5f7ef; color: #187348; }
+.rgbd-source-qwen { background: #e8f2fb; color: #286b9b; }
+.rgbd-source-unknown { background: #fff2e5; color: #9a5b1d; }
+.rgbd-skipped { margin: 12px 18px 0; color: #81683f; font-size: 11px; }
 .sku-query-review { display: grid; gap: 14px; }
 .sku-query-summary { display: flex; align-items: center; gap: 13px; min-width: 0; }
 .sku-query-summary > img { width: 82px; height: 70px; flex: 0 0 auto; object-fit: contain; border: 1px solid #cbd8da; background: #edf2f2; }
@@ -301,13 +315,14 @@ button { cursor: pointer; }
 }
 
 @media (max-width: 480px) {
-  .app-header { padding: 0 11px; }
+  .app-header { height: auto; min-height: 58px; flex-wrap: wrap; justify-content: flex-start; padding: 9px 11px 6px; }
+  .header-actions { width: 100%; padding-bottom: 3px; overflow-x: auto; scrollbar-width: thin; }
   .brand small { display: none; }
   .view-toggle button { width: 28px; padding: 0; justify-content: center; }
   .view-toggle button { font-size: 0; }
   .refresh-button { width: 30px; justify-content: center; padding: 0; }
   .refresh-button span { display: none; }
-  .manual-entry-button { width: 30px; justify-content: center; padding: 0; }
+  .manual-entry-button { width: 30px; flex: 0 0 auto; justify-content: center; padding: 0; }
   .manual-entry-button span { display: none; }
   .workspace { min-height: calc(100vh - 58px); }
   .visual-panel { min-height: 52vh; }
