@@ -1,0 +1,100 @@
+mode: multi_shelf_plane_3d
+relative_setback_threshold_mm: 60.0
+dynamic_baseline_method: median_of_frontmost_half_per_shelf
+shelves:
+- shelf_index: 1
+  geometry:
+    left_x: 0
+    right_x: 1279
+    surface_y: 402
+    goods_top_y: 208
+    surface_slope_px_per_pixel: -0.0011276442734647865
+    surface_intercept_px: 402.8523785128809
+    lower_edge_slope_px_per_pixel: -0.0009478575904243339
+    lower_edge_intercept_px: 472.54324106660096
+    lower_edge_depth_jump_mm: 302.5
+    lower_edge_depth_support_ratio: 1.0
+    goods_height_px: 194
+  shelf_front_depth_model:
+    normal_x: 0.012336938430750705
+    normal_y: 0.34711300685658497
+    normal_z: 0.9377421609489126
+    offset_mm: -473.6545011988291
+    sample_count: 38144
+    residual_rms_mm: 1.9885808125627416
+  dynamic_baseline_setback_mm: 16.7
+  detected_group_count: 3
+  product_groups:
+  - shelf_index: 1
+    group_index: 1
+    x_min: 108
+    y_min: 256
+    x_max: 298
+    y_max: 394
+    status: stockout_candidate
+    closest_item_setback_mm: 117.1
+    shelf_baseline_setback_mm: 16.7
+    setback_mm: 100.4
+  - shelf_index: 1
+    group_index: 2
+    x_min: 492
+    y_min: 250
+    x_max: 690
+    y_max: 394
+    status: normal
+    closest_item_setback_mm: -1.5
+    shelf_baseline_setback_mm: 16.7
+    setback_mm: -18.2
+  - shelf_index: 1
+    group_index: 3
+    x_min: 1026
+    y_min: 282
+    x_max: 1214
+    y_max: 393
+    status: normal
+    closest_item_setback_mm: 34.9
+    shelf_baseline_setback_mm: 16.7
+    setback_mm: 18.2
+skipped_shelves:
+- location: bottom
+  reason: products_visible_but_shelf_front_outside_image
+  approximate_y: 719
+product_groups:
+- shelf_index: 1
+  group_index: 1
+  x_min: 108
+  y_min: 256
+  x_max: 298
+  y_max: 394
+  status: stockout_candidate
+  closest_item_setback_mm: 117.1
+  shelf_baseline_setback_mm: 16.7
+  setback_mm: 100.4
+- shelf_index: 1
+  group_index: 2
+  x_min: 492
+  y_min: 250
+  x_max: 690
+  y_max: 394
+  status: normal
+  closest_item_setback_mm: -1.5
+  shelf_baseline_setback_mm: 16.7
+  setback_mm: -18.2
+- shelf_index: 1
+  group_index: 3
+  x_min: 1026
+  y_min: 282
+  x_max: 1214
+  y_max: 393
+  status: normal
+  closest_item_setback_mm: 34.9
+  shelf_baseline_setback_mm: 16.7
+  setback_mm: 18.2
+limitations:
+- The shelf-front plane must be visible enough for a stable 3D fit.
+- Each decision compares the closest RGB-D product instance with a robust normal-front
+  baseline from the same shelf.
+- Every shelf front is fitted independently; normals are not shared.
+- A clipped level is skipped when its own shelf front is not visible; another level
+  plane is never reused for it.
+- Errors in closest-product segmentation can affect the group status.
