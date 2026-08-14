@@ -1,0 +1,65 @@
+sample_name: 左斜拍
+annotation: 相机向左倾斜；与正面图对应的货架缺货样本
+combined_file: 左斜拍.png
+color:
+  file: 左斜拍_rgb.png
+  encoding: bgr8
+  width: 1280
+  height: 720
+  stamp_sec: 1786595934
+  stamp_nanosec: 125533203
+depth:
+  file: 左斜拍_depth_raw.png
+  visualization_file: 左斜拍_depth_color.png
+  encoding: 16UC1
+  unit: millimeter
+  visualization_range_m:
+  - 0.0
+  - 2.0
+  outside_visualization_range: black
+  width: 1280
+  height: 720
+  stamp_sec: 1786595934
+  stamp_nanosec: 125533203
+camera_info:
+  frame_id: camera_color_optical_frame
+  distortion_model: plumb_bob
+  d:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  k:
+  - 905.841796875
+  - 0.0
+  - 638.0394287109375
+  - 0.0
+  - 905.4683837890625
+  - 384.9830322265625
+  - 0.0
+  - 0.0
+  - 1.0
+  r:
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
+  p:
+  - 905.841796875
+  - 0.0
+  - 638.0394287109375
+  - 0.0
+  - 0.0
+  - 905.4683837890625
+  - 384.9830322265625
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
+  - 0.0

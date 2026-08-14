@@ -1,0 +1,80 @@
+mode: multi_shelf_plane_3d
+relative_setback_threshold_mm: 60.0
+dynamic_baseline_method: median_of_frontmost_half_per_shelf
+shelves:
+- shelf_index: 1
+  geometry:
+    left_x: 162
+    right_x: 1279
+    surface_y: 399
+    goods_top_y: 205
+    surface_slope_px_per_pixel: 5.2978222432880884e-05
+    surface_intercept_px: 398.61997283593377
+    lower_edge_slope_px_per_pixel: 0.0189718026761408
+    lower_edge_intercept_px: 452.93848982845145
+    lower_edge_depth_jump_mm: 299.5
+    lower_edge_depth_support_ratio: 0.979
+    goods_height_px: 194
+  shelf_front_depth_model:
+    normal_x: 0.22866432858143643
+    normal_y: 0.3461556763367253
+    normal_z: 0.9098839885250567
+    offset_mm: -483.31703748761436
+    sample_count: 39433
+    residual_rms_mm: 1.5509690731547217
+  dynamic_baseline_setback_mm: -1.1
+  detected_group_count: 3
+  product_groups:
+  - shelf_index: 1
+    group_index: 1
+    x_min: 367
+    y_min: 266
+    x_max: 527
+    y_max: 390
+    status: stockout_candidate
+    closest_item_setback_mm: 118.3
+    shelf_baseline_setback_mm: -1.1
+    setback_mm: 119.4
+  - shelf_index: 1
+    group_index: 2
+    x_min: 707
+    y_min: 210
+    x_max: 899
+    y_max: 390
+    status: normal
+    closest_item_setback_mm: -1.1
+    shelf_baseline_setback_mm: -1.1
+    setback_mm: 0.0
+skipped_shelves:
+- location: bottom
+  reason: products_visible_but_shelf_front_outside_image
+  approximate_y: 719
+product_groups:
+- shelf_index: 1
+  group_index: 1
+  x_min: 367
+  y_min: 266
+  x_max: 527
+  y_max: 390
+  status: stockout_candidate
+  closest_item_setback_mm: 118.3
+  shelf_baseline_setback_mm: -1.1
+  setback_mm: 119.4
+- shelf_index: 1
+  group_index: 2
+  x_min: 707
+  y_min: 210
+  x_max: 899
+  y_max: 390
+  status: normal
+  closest_item_setback_mm: -1.1
+  shelf_baseline_setback_mm: -1.1
+  setback_mm: 0.0
+limitations:
+- The shelf-front plane must be visible enough for a stable 3D fit.
+- Each decision compares the closest RGB-D product instance with a robust normal-front
+  baseline from the same shelf.
+- Every shelf front is fitted independently; normals are not shared.
+- A clipped level is skipped when its own shelf front is not visible; another level
+  plane is never reused for it.
+- Errors in closest-product segmentation can affect the group status.
