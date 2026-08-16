@@ -1,0 +1,1325 @@
+{
+  "schema_version": 2,
+  "shelf_id": 1,
+  "shelf_name": "1号货架",
+  "faces": {
+    "1": {
+      "image_file": "data/shelf_images/1/+x_0.png",
+      "image_hash": "sha256:7935421ec43352f890af448ab209a8e0582b8ef6a07f72e30e9873b9cc00909b",
+      "layers": {
+        "0": [
+          {
+            "x": 493,
+            "y": 2168
+          },
+          {
+            "x": 3696,
+            "y": 2163
+          },
+          {
+            "x": 3698,
+            "y": 2622
+          },
+          {
+            "x": 521,
+            "y": 2606
+          }
+        ],
+        "1": [
+          {
+            "x": 436,
+            "y": 1673
+          },
+          {
+            "x": 3708,
+            "y": 1675
+          },
+          {
+            "x": 3696,
+            "y": 2111
+          },
+          {
+            "x": 469,
+            "y": 2113
+          }
+        ],
+        "2": [
+          {
+            "x": 388,
+            "y": 1140
+          },
+          {
+            "x": 3786,
+            "y": 1135
+          },
+          {
+            "x": 3705,
+            "y": 1616
+          },
+          {
+            "x": 431,
+            "y": 1609
+          }
+        ],
+        "3": [
+          {
+            "x": 286,
+            "y": 524
+          },
+          {
+            "x": 3905,
+            "y": 505
+          },
+          {
+            "x": 3803,
+            "y": 1045
+          },
+          {
+            "x": 362,
+            "y": 1069
+          }
+        ],
+        "4": [
+          {
+            "x": 169,
+            "y": 50
+          },
+          {
+            "x": 3991,
+            "y": 22
+          },
+          {
+            "x": 3912,
+            "y": 440
+          },
+          {
+            "x": 257,
+            "y": 443
+          }
+        ]
+      },
+      "slots": [
+        {
+          "slot_id": "1-1-0-19",
+          "expected_sku": "界面医疗医用外科口罩",
+          "actual_sku": "界面医疗医用外科口罩",
+          "bbox": {
+            "x": 623,
+            "y": 2306,
+            "width": 406,
+            "height": 258
+          }
+        },
+        {
+          "slot_id": "1-1-0-46",
+          "expected_sku": "界面医疗医用外科口罩",
+          "actual_sku": "界面医疗医用外科口罩",
+          "bbox": {
+            "x": 1083,
+            "y": 2320,
+            "width": 386,
+            "height": 241
+          }
+        },
+        {
+          "slot_id": "1-1-0-77",
+          "expected_sku": "界面医疗医用外科口罩",
+          "actual_sku": "界面医疗医用外科口罩",
+          "bbox": {
+            "x": 1616,
+            "y": 2324,
+            "width": 400,
+            "height": 254
+          }
+        },
+        {
+          "slot_id": "1-1-0-104",
+          "expected_sku": "中盐精制盐",
+          "actual_sku": "中盐精制盐",
+          "bbox": {
+            "x": 2113,
+            "y": 2279,
+            "width": 344,
+            "height": 327
+          }
+        },
+        {
+          "slot_id": "1-1-0-127",
+          "expected_sku": "小苏打",
+          "actual_sku": "小苏打",
+          "bbox": {
+            "x": 2529,
+            "y": 2246,
+            "width": 327,
+            "height": 346
+          }
+        },
+        {
+          "slot_id": "1-1-0-145",
+          "expected_sku": "镇江香醋",
+          "actual_sku": "镇江香醋",
+          "bbox": {
+            "x": 2948,
+            "y": 2210,
+            "width": 130,
+            "height": 325
+          }
+        },
+        {
+          "slot_id": "1-1-0-154",
+          "expected_sku": "蒸鱼豉油",
+          "actual_sku": "蒸鱼豉油",
+          "bbox": {
+            "x": 3120,
+            "y": 2220,
+            "width": 117,
+            "height": 320
+          }
+        },
+        {
+          "slot_id": "1-1-0-167",
+          "expected_sku": "薄盐生抽",
+          "actual_sku": "薄盐生抽",
+          "bbox": {
+            "x": 3317,
+            "y": 2205,
+            "width": 170,
+            "height": 349
+          }
+        },
+        {
+          "slot_id": "1-1-1-17",
+          "expected_sku": "纯棉酒店大毛巾",
+          "actual_sku": "纯棉酒店大毛巾",
+          "bbox": {
+            "x": 604,
+            "y": 1770,
+            "width": 313,
+            "height": 303
+          }
+        },
+        {
+          "slot_id": "1-1-1-39",
+          "expected_sku": "纯棉酒店大毛巾",
+          "actual_sku": "纯棉酒店大毛巾",
+          "bbox": {
+            "x": 983,
+            "y": 1794,
+            "width": 346,
+            "height": 279
+          }
+        },
+        {
+          "slot_id": "1-1-1-60",
+          "expected_sku": "京东京造毛巾",
+          "actual_sku": "京东京造毛巾",
+          "bbox": {
+            "x": 1366,
+            "y": 1780,
+            "width": 324,
+            "height": 305
+          }
+        },
+        {
+          "slot_id": "1-1-1-81",
+          "expected_sku": "京东京造毛巾",
+          "actual_sku": "京东京造毛巾",
+          "bbox": {
+            "x": 1742,
+            "y": 1818,
+            "width": 308,
+            "height": 265
+          }
+        },
+        {
+          "slot_id": "1-1-1-103",
+          "expected_sku": "三色藜麦",
+          "actual_sku": "三色藜麦",
+          "bbox": {
+            "x": 2189,
+            "y": 1758,
+            "width": 194,
+            "height": 327
+          }
+        },
+        {
+          "slot_id": "1-1-1-115",
+          "expected_sku": "三色藜麦",
+          "actual_sku": "三色藜麦",
+          "bbox": {
+            "x": 2401,
+            "y": 1739,
+            "width": 187,
+            "height": 365
+          }
+        },
+        {
+          "slot_id": "1-1-1-128",
+          "expected_sku": "慢碳十色糙米",
+          "actual_sku": "慢碳十色糙米",
+          "bbox": {
+            "x": 2651,
+            "y": 1794,
+            "width": 165,
+            "height": 291
+          }
+        },
+        {
+          "slot_id": "1-1-1-143",
+          "expected_sku": "高纤七色糙米",
+          "actual_sku": "高纤七色糙米",
+          "bbox": {
+            "x": 2903,
+            "y": 1811,
+            "width": 179,
+            "height": 277
+          }
+        },
+        {
+          "slot_id": "1-1-1-155",
+          "expected_sku": "山西黄小米",
+          "actual_sku": "山西黄小米",
+          "bbox": {
+            "x": 3108,
+            "y": 1811,
+            "width": 203,
+            "height": 272
+          }
+        },
+        {
+          "slot_id": "1-1-1-167",
+          "expected_sku": "山西黄小米",
+          "actual_sku": "山西黄小米",
+          "bbox": {
+            "x": 3331,
+            "y": 1803,
+            "width": 192,
+            "height": 287
+          }
+        },
+        {
+          "slot_id": "1-1-2-20",
+          "expected_sku": "妙洁海绵百洁布",
+          "actual_sku": "妙洁海绵百洁布",
+          "bbox": {
+            "x": 630,
+            "y": 1339,
+            "width": 258,
+            "height": 132
+          }
+        },
+        {
+          "slot_id": "1-1-2-41",
+          "expected_sku": "妙洁海绵百洁布",
+          "actual_sku": "妙洁海绵百洁布",
+          "bbox": {
+            "x": 997,
+            "y": 1344,
+            "width": 291,
+            "height": 130
+          }
+        },
+        {
+          "slot_id": "1-1-2-62",
+          "expected_sku": "心相印纸巾",
+          "actual_sku": "心相印纸巾",
+          "bbox": {
+            "x": 1394,
+            "y": 1370,
+            "width": 265,
+            "height": 135
+          }
+        },
+        {
+          "slot_id": "1-1-2-83",
+          "expected_sku": "心相印纸巾",
+          "actual_sku": "心相印纸巾",
+          "bbox": {
+            "x": 1766,
+            "y": 1377,
+            "width": 260,
+            "height": 123
+          }
+        },
+        {
+          "slot_id": "1-1-2-106",
+          "expected_sku": "康师傅香辣牛肉面",
+          "actual_sku": "康师傅香辣牛肉面",
+          "bbox": {
+            "x": 2196,
+            "y": 1232,
+            "width": 244,
+            "height": 204
+          }
+        },
+        {
+          "slot_id": "1-1-2-128",
+          "expected_sku": "康师傅鲜虾鱼板面",
+          "actual_sku": "康师傅鲜虾鱼板面",
+          "bbox": {
+            "x": 2603,
+            "y": 1228,
+            "width": 232,
+            "height": 193
+          }
+        },
+        {
+          "slot_id": "1-1-2-147",
+          "expected_sku": "康师傅老坛酸菜牛肉面",
+          "actual_sku": "康师傅老坛酸菜牛肉面",
+          "bbox": {
+            "x": 2958,
+            "y": 1225,
+            "width": 241,
+            "height": 201
+          }
+        },
+        {
+          "slot_id": "1-1-2-170",
+          "expected_sku": "好人家火锅底料",
+          "actual_sku": "好人家火锅底料",
+          "bbox": {
+            "x": 3341,
+            "y": 1216,
+            "width": 301,
+            "height": 372
+          }
+        },
+        {
+          "slot_id": "1-1-3-10",
+          "expected_sku": "海氏海诺创口贴",
+          "actual_sku": "海氏海诺创口贴",
+          "bbox": {
+            "x": 456,
+            "y": 868,
+            "width": 163,
+            "height": 187
+          }
+        },
+        {
+          "slot_id": "1-1-3-19",
+          "expected_sku": "海氏海诺创口贴",
+          "actual_sku": "海氏海诺创口贴",
+          "bbox": {
+            "x": 640,
+            "y": 861,
+            "width": 136,
+            "height": 187
+          }
+        },
+        {
+          "slot_id": "1-1-3-38",
+          "expected_sku": "德佑湿巾",
+          "actual_sku": "德佑湿巾",
+          "bbox": {
+            "x": 890,
+            "y": 728,
+            "width": 339,
+            "height": 175
+          }
+        },
+        {
+          "slot_id": "1-1-3-62",
+          "expected_sku": "心相印纸巾",
+          "actual_sku": "心相印纸巾",
+          "bbox": {
+            "x": 1418,
+            "y": 849,
+            "width": 229,
+            "height": 92
+          }
+        },
+        {
+          "slot_id": "1-1-3-80",
+          "expected_sku": "心相印纸巾",
+          "actual_sku": "心相印纸巾",
+          "bbox": {
+            "x": 1742,
+            "y": 837,
+            "width": 253,
+            "height": 123
+          }
+        },
+        {
+          "slot_id": "1-1-3-100",
+          "expected_sku": "合味道海鲜味",
+          "actual_sku": "合味道海鲜味",
+          "bbox": {
+            "x": 2161,
+            "y": 830,
+            "width": 177,
+            "height": 213
+          }
+        },
+        {
+          "slot_id": "1-1-3-118",
+          "expected_sku": "合味道五香牛肉味",
+          "actual_sku": "合味道五香牛肉味",
+          "bbox": {
+            "x": 2525,
+            "y": 830,
+            "width": 162,
+            "height": 211
+          }
+        },
+        {
+          "slot_id": "1-1-3-133",
+          "expected_sku": "农心碗面",
+          "actual_sku": "农心碗面",
+          "bbox": {
+            "x": 2760,
+            "y": 764,
+            "width": 256,
+            "height": 143
+          }
+        },
+        {
+          "slot_id": "1-1-3-143",
+          "expected_sku": "健食力低脂香肠",
+          "actual_sku": "健食力低脂香肠",
+          "bbox": {
+            "x": 3015,
+            "y": 852,
+            "width": 127,
+            "height": 174
+          }
+        },
+        {
+          "slot_id": "1-1-3-154",
+          "expected_sku": "健食力低脂香肠",
+          "actual_sku": "健食力低脂香肠",
+          "bbox": {
+            "x": 3167,
+            "y": 809,
+            "width": 218,
+            "height": 222
+          }
+        },
+        {
+          "slot_id": "1-1-3-165",
+          "expected_sku": "健食力低脂香肠",
+          "actual_sku": "健食力低脂香肠",
+          "bbox": {
+            "x": 3403,
+            "y": 794,
+            "width": 163,
+            "height": 242
+          }
+        },
+        {
+          "slot_id": "1-1-4-11",
+          "expected_sku": "可孚棉签",
+          "actual_sku": "可孚棉签",
+          "bbox": {
+            "x": 375,
+            "y": 285,
+            "width": 154,
+            "height": 149
+          }
+        },
+        {
+          "slot_id": "1-1-4-25",
+          "expected_sku": "可孚棉签",
+          "actual_sku": "可孚棉签",
+          "bbox": {
+            "x": 642,
+            "y": 273,
+            "width": 151,
+            "height": 156
+          }
+        },
+        {
+          "slot_id": "1-1-4-36",
+          "expected_sku": "可孚棉签",
+          "actual_sku": "可孚棉签",
+          "bbox": {
+            "x": 871,
+            "y": 287,
+            "width": 139,
+            "height": 142
+          }
+        },
+        {
+          "slot_id": "1-1-4-51",
+          "expected_sku": "小鹿妈妈牙线",
+          "actual_sku": "小鹿妈妈牙线",
+          "bbox": {
+            "x": 1106,
+            "y": 356,
+            "width": 256,
+            "height": 73
+          }
+        },
+        {
+          "slot_id": "1-1-4-65",
+          "expected_sku": "小鹿妈妈牙线",
+          "actual_sku": "小鹿妈妈牙线",
+          "bbox": {
+            "x": 1408,
+            "y": 349,
+            "width": 206,
+            "height": 78
+          }
+        },
+        {
+          "slot_id": "1-1-4-75",
+          "expected_sku": "得宝纸巾",
+          "actual_sku": "得宝纸巾",
+          "bbox": {
+            "x": 1611,
+            "y": 178,
+            "width": 163,
+            "height": 249
+          }
+        },
+        {
+          "slot_id": "1-1-4-87",
+          "expected_sku": "得宝纸巾",
+          "actual_sku": "得宝纸巾",
+          "bbox": {
+            "x": 1863,
+            "y": 192,
+            "width": 165,
+            "height": 227
+          }
+        },
+        {
+          "slot_id": "1-1-4-101",
+          "expected_sku": "草原红太阳烧烤料原味",
+          "actual_sku": "草原红太阳烧烤料原味",
+          "bbox": {
+            "x": 2161,
+            "y": 228,
+            "width": 124,
+            "height": 196
+          }
+        },
+        {
+          "slot_id": "1-1-4-114",
+          "expected_sku": "草原红太阳烧烤料香辣味",
+          "actual_sku": "草原红太阳烧烤料香辣味",
+          "bbox": {
+            "x": 2422,
+            "y": 242,
+            "width": 130,
+            "height": 185
+          }
+        },
+        {
+          "slot_id": "1-1-4-133",
+          "expected_sku": "草原红太阳烧烤酱香辣",
+          "actual_sku": "草原红太阳烧烤酱香辣",
+          "bbox": {
+            "x": 2789,
+            "y": 92,
+            "width": 203,
+            "height": 332
+          }
+        },
+        {
+          "slot_id": "1-1-4-151",
+          "expected_sku": "草原红太阳烧烤酱香辣",
+          "actual_sku": "草原红太阳烧烤酱香辣",
+          "bbox": {
+            "x": 3172,
+            "y": 95,
+            "width": 177,
+            "height": 339
+          }
+        },
+        {
+          "slot_id": "1-1-4-172",
+          "expected_sku": "草原红太阳烧烤酱原味",
+          "actual_sku": "草原红太阳烧烤酱原味",
+          "bbox": {
+            "x": 3624,
+            "y": 85,
+            "width": 175,
+            "height": 337
+          }
+        }
+      ]
+    },
+    "0": {
+      "image_file": "data/shelf_images/1/-x_0.png",
+      "image_hash": "sha256:92d9a59183d9a85b3a7e4ca2a22cb4f9aba3fbc8b179cb916100d19c8da7a949",
+      "layers": {
+        "0": [
+          {
+            "x": 504,
+            "y": 2238
+          },
+          {
+            "x": 3720,
+            "y": 2226
+          },
+          {
+            "x": 3720,
+            "y": 2673
+          },
+          {
+            "x": 502,
+            "y": 2680
+          }
+        ],
+        "1": [
+          {
+            "x": 471,
+            "y": 1709
+          },
+          {
+            "x": 3699,
+            "y": 1694
+          },
+          {
+            "x": 3675,
+            "y": 2146
+          },
+          {
+            "x": 495,
+            "y": 2160
+          }
+        ],
+        "2": [
+          {
+            "x": 424,
+            "y": 1184
+          },
+          {
+            "x": 3720,
+            "y": 1162
+          },
+          {
+            "x": 3690,
+            "y": 1621
+          },
+          {
+            "x": 459,
+            "y": 1657
+          }
+        ],
+        "3": [
+          {
+            "x": 372,
+            "y": 603
+          },
+          {
+            "x": 3786,
+            "y": 588
+          },
+          {
+            "x": 3744,
+            "y": 1089
+          },
+          {
+            "x": 414,
+            "y": 1118
+          }
+        ],
+        "4": [
+          {
+            "x": 355,
+            "y": 127
+          },
+          {
+            "x": 3807,
+            "y": 112
+          },
+          {
+            "x": 3796,
+            "y": 560
+          },
+          {
+            "x": 363,
+            "y": 558
+          }
+        ]
+      },
+      "slots": [
+        {
+          "slot_id": "1-0-0-18",
+          "expected_sku": "浪味仙",
+          "actual_sku": "浪味仙",
+          "bbox": {
+            "x": 3237,
+            "y": 2287,
+            "width": 319,
+            "height": 359
+          }
+        },
+        {
+          "slot_id": "1-0-0-39",
+          "expected_sku": "浪味仙",
+          "actual_sku": "浪味仙",
+          "bbox": {
+            "x": 2868,
+            "y": 2280,
+            "width": 347,
+            "height": 366
+          }
+        },
+        {
+          "slot_id": "1-0-0-62",
+          "expected_sku": "上好佳鲜虾条",
+          "actual_sku": "上好佳鲜虾条",
+          "bbox": {
+            "x": 2482,
+            "y": 2287,
+            "width": 311,
+            "height": 359
+          }
+        },
+        {
+          "slot_id": "1-0-0-83",
+          "expected_sku": "上好佳鲜虾条",
+          "actual_sku": "上好佳鲜虾条",
+          "bbox": {
+            "x": 2143,
+            "y": 2261,
+            "width": 260,
+            "height": 375
+          }
+        },
+        {
+          "slot_id": "1-0-0-111",
+          "expected_sku": "好友趣蜂蜜黄油味",
+          "actual_sku": "好友趣蜂蜜黄油味",
+          "bbox": {
+            "x": 1640,
+            "y": 2270,
+            "width": 304,
+            "height": 369
+          }
+        },
+        {
+          "slot_id": "1-0-0-129",
+          "expected_sku": "吐司方方原味",
+          "actual_sku": "吐司方方原味",
+          "bbox": {
+            "x": 1402,
+            "y": 2416,
+            "width": 154,
+            "height": 232
+          }
+        },
+        {
+          "slot_id": "1-0-0-144",
+          "expected_sku": "吐司方方原味",
+          "actual_sku": "吐司方方原味",
+          "bbox": {
+            "x": 1148,
+            "y": 2409,
+            "width": 156,
+            "height": 237
+          }
+        },
+        {
+          "slot_id": "1-0-0-168",
+          "expected_sku": "好丽友·派",
+          "actual_sku": "好丽友·派",
+          "bbox": {
+            "x": 567,
+            "y": 2412,
+            "width": 476,
+            "height": 241
+          }
+        },
+        {
+          "slot_id": "1-0-1-15",
+          "expected_sku": "浪味仙",
+          "actual_sku": "浪味仙",
+          "bbox": {
+            "x": 3268,
+            "y": 1762,
+            "width": 330,
+            "height": 371
+          }
+        },
+        {
+          "slot_id": "1-0-1-40",
+          "expected_sku": "浪味仙",
+          "actual_sku": "浪味仙",
+          "bbox": {
+            "x": 2842,
+            "y": 1779,
+            "width": 304,
+            "height": 330
+          }
+        },
+        {
+          "slot_id": "1-0-1-63",
+          "expected_sku": "上好佳鲜虾条",
+          "actual_sku": "上好佳鲜虾条",
+          "bbox": {
+            "x": 2449,
+            "y": 1769,
+            "width": 323,
+            "height": 364
+          }
+        },
+        {
+          "slot_id": "1-0-1-83",
+          "expected_sku": "上好佳鲜虾条",
+          "actual_sku": "上好佳鲜虾条",
+          "bbox": {
+            "x": 2108,
+            "y": 1776,
+            "width": 297,
+            "height": 364
+          }
+        },
+        {
+          "slot_id": "1-0-1-106",
+          "expected_sku": "百醇巧克力味",
+          "actual_sku": "百醇巧克力味",
+          "bbox": {
+            "x": 1790,
+            "y": 1821,
+            "width": 156,
+            "height": 297
+          }
+        },
+        {
+          "slot_id": "1-0-1-120",
+          "expected_sku": "百醇草莓香草味",
+          "actual_sku": "百醇草莓香草味",
+          "bbox": {
+            "x": 1534,
+            "y": 1830,
+            "width": 163,
+            "height": 279
+          }
+        },
+        {
+          "slot_id": "1-0-1-136",
+          "expected_sku": "卫龙辣条",
+          "actual_sku": "卫龙辣条",
+          "bbox": {
+            "x": 1247,
+            "y": 1776,
+            "width": 180,
+            "height": 354
+          }
+        },
+        {
+          "slot_id": "1-0-1-152",
+          "expected_sku": "卫龙辣条",
+          "actual_sku": "卫龙辣条",
+          "bbox": {
+            "x": 990,
+            "y": 1793,
+            "width": 171,
+            "height": 337
+          }
+        },
+        {
+          "slot_id": "1-0-1-171",
+          "expected_sku": "卫龙辣条",
+          "actual_sku": "卫龙辣条",
+          "bbox": {
+            "x": 640,
+            "y": 1821,
+            "width": 215,
+            "height": 321
+          }
+        },
+        {
+          "slot_id": "1-0-2-28",
+          "expected_sku": "好友趣韩国泡菜味",
+          "actual_sku": "好友趣韩国泡菜味",
+          "bbox": {
+            "x": 3103,
+            "y": 1313,
+            "width": 243,
+            "height": 307
+          }
+        },
+        {
+          "slot_id": "1-0-2-45",
+          "expected_sku": "好友趣韩国泡菜味",
+          "actual_sku": "好友趣韩国泡菜味",
+          "bbox": {
+            "x": 2795,
+            "y": 1296,
+            "width": 278,
+            "height": 316
+          }
+        },
+        {
+          "slot_id": "1-0-2-64",
+          "expected_sku": "呀！土豆番茄酱味",
+          "actual_sku": "呀！土豆番茄酱味",
+          "bbox": {
+            "x": 2463,
+            "y": 1303,
+            "width": 290,
+            "height": 319
+          }
+        },
+        {
+          "slot_id": "1-0-2-82",
+          "expected_sku": "呀！土豆番茄酱味",
+          "actual_sku": "呀！土豆番茄酱味",
+          "bbox": {
+            "x": 2152,
+            "y": 1301,
+            "width": 277,
+            "height": 326
+          }
+        },
+        {
+          "slot_id": "1-0-2-101",
+          "expected_sku": "Lay’s乐事薯片青柠味",
+          "actual_sku": "Lay’s乐事薯片青柠味",
+          "bbox": {
+            "x": 1844,
+            "y": 1327,
+            "width": 208,
+            "height": 293
+          }
+        },
+        {
+          "slot_id": "1-0-2-122",
+          "expected_sku": "Lay’s乐事薯片意大利香浓红烩味",
+          "actual_sku": "Lay’s乐事薯片意大利香浓红烩味",
+          "bbox": {
+            "x": 1494,
+            "y": 1339,
+            "width": 203,
+            "height": 285
+          }
+        },
+        {
+          "slot_id": "1-0-2-135",
+          "expected_sku": "Lay’s乐事薯片黄瓜味",
+          "actual_sku": "Lay’s乐事薯片黄瓜味",
+          "bbox": {
+            "x": 1270,
+            "y": 1357,
+            "width": 171,
+            "height": 277
+          }
+        },
+        {
+          "slot_id": "1-0-2-148",
+          "expected_sku": "Lay’s乐事薯片经典原味",
+          "actual_sku": "Lay’s乐事薯片经典原味",
+          "bbox": {
+            "x": 1035,
+            "y": 1367,
+            "width": 175,
+            "height": 269
+          }
+        },
+        {
+          "slot_id": "1-0-2-168",
+          "expected_sku": "Lay’s乐事薯片墨西哥鸡汁番茄味",
+          "actual_sku": "Lay’s乐事薯片墨西哥鸡汁番茄味",
+          "bbox": {
+            "x": 649,
+            "y": 1339,
+            "width": 243,
+            "height": 297
+          }
+        },
+        {
+          "slot_id": "1-0-3-13",
+          "expected_sku": "奥利奥白桃乌龙味",
+          "actual_sku": "奥利奥白桃乌龙味",
+          "bbox": {
+            "x": 3477,
+            "y": 705,
+            "width": 98,
+            "height": 368
+          }
+        },
+        {
+          "slot_id": "1-0-3-26",
+          "expected_sku": "奥利奥浓醇巧克力味",
+          "actual_sku": "奥利奥浓醇巧克力味",
+          "bbox": {
+            "x": 3251,
+            "y": 712,
+            "width": 114,
+            "height": 364
+          }
+        },
+        {
+          "slot_id": "1-0-3-38",
+          "expected_sku": "奥利奥冰淇淋抹茶味",
+          "actual_sku": "奥利奥冰淇淋抹茶味",
+          "bbox": {
+            "x": 3033,
+            "y": 710,
+            "width": 113,
+            "height": 375
+          }
+        },
+        {
+          "slot_id": "1-0-3-49",
+          "expected_sku": "奥利奥香甜不腻",
+          "actual_sku": "奥利奥香甜不腻",
+          "bbox": {
+            "x": 2835,
+            "y": 705,
+            "width": 128,
+            "height": 383
+          }
+        },
+        {
+          "slot_id": "1-0-3-62",
+          "expected_sku": "品客酸乳酪洋葱味",
+          "actual_sku": "品客酸乳酪洋葱味",
+          "bbox": {
+            "x": 2595,
+            "y": 719,
+            "width": 126,
+            "height": 364
+          }
+        },
+        {
+          "slot_id": "1-0-3-75",
+          "expected_sku": "品客原味",
+          "actual_sku": "品客原味",
+          "bbox": {
+            "x": 2362,
+            "y": 729,
+            "width": 126,
+            "height": 359
+          }
+        },
+        {
+          "slot_id": "1-0-3-88",
+          "expected_sku": "品客薯片烧烤牛排味",
+          "actual_sku": "品客薯片烧烤牛排味",
+          "bbox": {
+            "x": 2138,
+            "y": 719,
+            "width": 124,
+            "height": 369
+          }
+        },
+        {
+          "slot_id": "1-0-3-106",
+          "expected_sku": "薯愿非油炸香烤原味",
+          "actual_sku": "薯愿非油炸香烤原味",
+          "bbox": {
+            "x": 1800,
+            "y": 727,
+            "width": 144,
+            "height": 375
+          }
+        },
+        {
+          "slot_id": "1-0-3-118",
+          "expected_sku": "薯愿非油炸韩国泡菜味",
+          "actual_sku": "薯愿非油炸韩国泡菜味",
+          "bbox": {
+            "x": 1581,
+            "y": 724,
+            "width": 140,
+            "height": 371
+          }
+        },
+        {
+          "slot_id": "1-0-3-132",
+          "expected_sku": "薯愿非油炸清新番茄味",
+          "actual_sku": "薯愿非油炸清新番茄味",
+          "bbox": {
+            "x": 1322,
+            "y": 727,
+            "width": 161,
+            "height": 368
+          }
+        },
+        {
+          "slot_id": "1-0-3-145",
+          "expected_sku": "妙芙巧克力味",
+          "actual_sku": "妙芙巧克力味",
+          "bbox": {
+            "x": 1065,
+            "y": 753,
+            "width": 187,
+            "height": 349
+          }
+        },
+        {
+          "slot_id": "1-0-3-159",
+          "expected_sku": "妙芙绵醇奶油味",
+          "actual_sku": "妙芙绵醇奶油味",
+          "bbox": {
+            "x": 790,
+            "y": 743,
+            "width": 220,
+            "height": 361
+          }
+        },
+        {
+          "slot_id": "1-0-3-174",
+          "expected_sku": "妙芙香芋牛奶味",
+          "actual_sku": "妙芙香芋牛奶味",
+          "bbox": {
+            "x": 520,
+            "y": 748,
+            "width": 210,
+            "height": 363
+          }
+        },
+        {
+          "slot_id": "1-0-4-15",
+          "expected_sku": "双汇王中王火腿肠",
+          "actual_sku": "双汇王中王火腿肠",
+          "bbox": {
+            "x": 3346,
+            "y": 467,
+            "width": 337,
+            "height": 53
+          }
+        },
+        {
+          "slot_id": "1-0-4-38",
+          "expected_sku": "费列罗巧克力",
+          "actual_sku": "费列罗巧克力",
+          "bbox": {
+            "x": 2941,
+            "y": 437,
+            "width": 262,
+            "height": 74
+          }
+        },
+        {
+          "slot_id": "1-0-4-55",
+          "expected_sku": "三只松鼠每日坚果",
+          "actual_sku": "三只松鼠每日坚果",
+          "bbox": {
+            "x": 2607,
+            "y": 420,
+            "width": 314,
+            "height": 103
+          }
+        },
+        {
+          "slot_id": "1-0-4-72",
+          "expected_sku": "百草味海苔肉松蛋卷",
+          "actual_sku": "百草味海苔肉松蛋卷",
+          "bbox": {
+            "x": 2362,
+            "y": 366,
+            "width": 166,
+            "height": 178
+          }
+        },
+        {
+          "slot_id": "1-0-4-82",
+          "expected_sku": "百草味海苔肉松蛋卷",
+          "actual_sku": "百草味海苔肉松蛋卷",
+          "bbox": {
+            "x": 2167,
+            "y": 359,
+            "width": 161,
+            "height": 185
+          }
+        },
+        {
+          "slot_id": "1-0-4-97",
+          "expected_sku": "纯甄酸奶",
+          "actual_sku": "纯甄酸奶",
+          "bbox": {
+            "x": 1927,
+            "y": 350,
+            "width": 85,
+            "height": 192
+          }
+        },
+        {
+          "slot_id": "1-0-4-106",
+          "expected_sku": "纯甄酸奶",
+          "actual_sku": "纯甄酸奶",
+          "bbox": {
+            "x": 1755,
+            "y": 352,
+            "width": 93,
+            "height": 187
+          }
+        },
+        {
+          "slot_id": "1-0-4-117",
+          "expected_sku": "纯甄酸奶",
+          "actual_sku": "纯甄酸奶",
+          "bbox": {
+            "x": 1557,
+            "y": 350,
+            "width": 114,
+            "height": 194
+          }
+        },
+        {
+          "slot_id": "1-0-4-127",
+          "expected_sku": "蒙牛纯牛奶",
+          "actual_sku": "蒙牛纯牛奶",
+          "bbox": {
+            "x": 1362,
+            "y": 317,
+            "width": 111,
+            "height": 234
+          }
+        },
+        {
+          "slot_id": "1-0-4-139",
+          "expected_sku": "蒙牛纯牛奶",
+          "actual_sku": "蒙牛纯牛奶",
+          "bbox": {
+            "x": 1145,
+            "y": 319,
+            "width": 110,
+            "height": 237
+          }
+        },
+        {
+          "slot_id": "1-0-4-150",
+          "expected_sku": "蒙牛纯牛奶",
+          "actual_sku": "蒙牛纯牛奶",
+          "bbox": {
+            "x": 941,
+            "y": 312,
+            "width": 114,
+            "height": 237
+          }
+        },
+        {
+          "slot_id": "1-0-4-160",
+          "expected_sku": "NFC桔汁",
+          "actual_sku": "NFC桔汁",
+          "bbox": {
+            "x": 783,
+            "y": 397,
+            "width": 105,
+            "height": 157
+          }
+        },
+        {
+          "slot_id": "1-0-4-169",
+          "expected_sku": "NFC桔汁",
+          "actual_sku": "NFC桔汁",
+          "bbox": {
+            "x": 623,
+            "y": 397,
+            "width": 102,
+            "height": 152
+          }
+        },
+        {
+          "slot_id": "1-0-4-177",
+          "expected_sku": "NFC桔汁",
+          "actual_sku": "NFC桔汁",
+          "bbox": {
+            "x": 463,
+            "y": 393,
+            "width": 119,
+            "height": 158
+          }
+        }
+      ]
+    }
+  }
+}

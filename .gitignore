@@ -17,8 +17,18 @@ web/node_modules/
 web/dist/
 web/.vite/
 
-# Local runtime photos and calibration projections
-data/
+# Keep the canonical shelf dataset needed to reproduce vision behavior.
+# Exclude generated inspection output and high-resolution migration backups.
+data/*
+!data/item_images/
+!data/item_images/**
+!data/shelf.db
+!data/shelf_calibration/
+!data/shelf_calibration/**
+!data/shelf_images/
+!data/shelf_images/**
+!data/sku_images/
+!data/sku_images/**
 vision/output/
 vision/models/
 

@@ -1,0 +1,1292 @@
+{
+  "schema_version": 2,
+  "shelf_id": 2,
+  "shelf_name": "2号货架",
+  "faces": {
+    "0": {
+      "image_file": "data/shelf_images/2/-x_0.png",
+      "image_hash": "sha256:3e712eacee59ecd3cd956f9c2e4466dd63f3b0202b722346ea26285cd3e4c267",
+      "layers": {
+        "0": [
+          {
+            "x": 487,
+            "y": 2290
+          },
+          {
+            "x": 3724,
+            "y": 2273
+          },
+          {
+            "x": 3700,
+            "y": 2712
+          },
+          {
+            "x": 497,
+            "y": 2703
+          }
+        ],
+        "1": [
+          {
+            "x": 485,
+            "y": 1764
+          },
+          {
+            "x": 3734,
+            "y": 1752
+          },
+          {
+            "x": 3650,
+            "y": 2199
+          },
+          {
+            "x": 554,
+            "y": 2211
+          }
+        ],
+        "2": [
+          {
+            "x": 410,
+            "y": 1200
+          },
+          {
+            "x": 3803,
+            "y": 1188
+          },
+          {
+            "x": 3726,
+            "y": 1697
+          },
+          {
+            "x": 480,
+            "y": 1702
+          }
+        ],
+        "3": [
+          {
+            "x": 339,
+            "y": 617
+          },
+          {
+            "x": 3880,
+            "y": 617
+          },
+          {
+            "x": 3796,
+            "y": 1150
+          },
+          {
+            "x": 401,
+            "y": 1145
+          }
+        ],
+        "4": [
+          {
+            "x": 269,
+            "y": 63
+          },
+          {
+            "x": 3940,
+            "y": 34
+          },
+          {
+            "x": 3861,
+            "y": 555
+          },
+          {
+            "x": 315,
+            "y": 574
+          }
+        ]
+      },
+      "slots": [
+        {
+          "slot_id": "2-0-0-14",
+          "expected_sku": "百岁山矿泉水",
+          "actual_sku": "百岁山矿泉水",
+          "bbox": {
+            "x": 3392,
+            "y": 2292,
+            "width": 133,
+            "height": 339
+          }
+        },
+        {
+          "slot_id": "2-0-0-26",
+          "expected_sku": "百岁山矿泉水",
+          "actual_sku": "百岁山矿泉水",
+          "bbox": {
+            "x": 3164,
+            "y": 2299,
+            "width": 121,
+            "height": 342
+          }
+        },
+        {
+          "slot_id": "2-0-0-37",
+          "expected_sku": "百岁山矿泉水",
+          "actual_sku": "百岁山矿泉水",
+          "bbox": {
+            "x": 2950,
+            "y": 2299,
+            "width": 141,
+            "height": 344
+          }
+        },
+        {
+          "slot_id": "2-0-0-52",
+          "expected_sku": "宝矿力水特",
+          "actual_sku": "宝矿力水特",
+          "bbox": {
+            "x": 2684,
+            "y": 2294,
+            "width": 128,
+            "height": 327
+          }
+        },
+        {
+          "slot_id": "2-0-0-67",
+          "expected_sku": "宝矿力水特",
+          "actual_sku": "宝矿力水特",
+          "bbox": {
+            "x": 2422,
+            "y": 2304,
+            "width": 128,
+            "height": 315
+          }
+        },
+        {
+          "slot_id": "2-0-0-78",
+          "expected_sku": "宝矿力水特",
+          "actual_sku": "宝矿力水特",
+          "bbox": {
+            "x": 2218,
+            "y": 2313,
+            "width": 133,
+            "height": 330
+          }
+        },
+        {
+          "slot_id": "2-0-0-99",
+          "expected_sku": "外星人电解质水白桃口味0糖",
+          "actual_sku": "外星人电解质水白桃口味0糖",
+          "bbox": {
+            "x": 1851,
+            "y": 2321,
+            "width": 142,
+            "height": 327
+          }
+        },
+        {
+          "slot_id": "2-0-0-114",
+          "expected_sku": "外星人电解质水白桃口味0糖",
+          "actual_sku": "外星人电解质水白桃口味0糖",
+          "bbox": {
+            "x": 1586,
+            "y": 2316,
+            "width": 146,
+            "height": 349
+          }
+        },
+        {
+          "slot_id": "2-0-0-130",
+          "expected_sku": "脉动猫薄荷瓶",
+          "actual_sku": "脉动猫薄荷瓶",
+          "bbox": {
+            "x": 1315,
+            "y": 2313,
+            "width": 143,
+            "height": 318
+          }
+        },
+        {
+          "slot_id": "2-0-0-143",
+          "expected_sku": "脉动菠萝口味",
+          "actual_sku": "脉动菠萝口味",
+          "bbox": {
+            "x": 1089,
+            "y": 2321,
+            "width": 145,
+            "height": 322
+          }
+        },
+        {
+          "slot_id": "2-0-0-154",
+          "expected_sku": "脉动芒果口味",
+          "actual_sku": "脉动芒果口味",
+          "bbox": {
+            "x": 902,
+            "y": 2323,
+            "width": 145,
+            "height": 301
+          }
+        },
+        {
+          "slot_id": "2-0-0-166",
+          "expected_sku": "脉动观梅止渴饮",
+          "actual_sku": "脉动观梅止渴饮",
+          "bbox": {
+            "x": 719,
+            "y": 2323,
+            "width": 122,
+            "height": 289
+          }
+        },
+        {
+          "slot_id": "2-0-1-12",
+          "expected_sku": "百岁山矿泉水",
+          "actual_sku": "百岁山矿泉水",
+          "bbox": {
+            "x": 3419,
+            "y": 1788,
+            "width": 137,
+            "height": 375
+          }
+        },
+        {
+          "slot_id": "2-0-1-27",
+          "expected_sku": "百岁山矿泉水",
+          "actual_sku": "百岁山矿泉水",
+          "bbox": {
+            "x": 3159,
+            "y": 1780,
+            "width": 131,
+            "height": 373
+          }
+        },
+        {
+          "slot_id": "2-0-1-39",
+          "expected_sku": "百岁山矿泉水",
+          "actual_sku": "百岁山矿泉水",
+          "bbox": {
+            "x": 2955,
+            "y": 1785,
+            "width": 114,
+            "height": 368
+          }
+        },
+        {
+          "slot_id": "2-0-1-48",
+          "expected_sku": "宝矿力水特",
+          "actual_sku": "宝矿力水特",
+          "bbox": {
+            "x": 2787,
+            "y": 1821,
+            "width": 121,
+            "height": 340
+          }
+        },
+        {
+          "slot_id": "2-0-1-61",
+          "expected_sku": "宝矿力水特",
+          "actual_sku": "宝矿力水特",
+          "bbox": {
+            "x": 2578,
+            "y": 1824,
+            "width": 121,
+            "height": 349
+          }
+        },
+        {
+          "slot_id": "2-0-1-72",
+          "expected_sku": "宝矿力水特",
+          "actual_sku": "宝矿力水特",
+          "bbox": {
+            "x": 2386,
+            "y": 1824,
+            "width": 116,
+            "height": 339
+          }
+        },
+        {
+          "slot_id": "2-0-1-85",
+          "expected_sku": "宝矿力水特",
+          "actual_sku": "宝矿力水特",
+          "bbox": {
+            "x": 2163,
+            "y": 1819,
+            "width": 116,
+            "height": 342
+          }
+        },
+        {
+          "slot_id": "2-0-1-102",
+          "expected_sku": "外星人电解质水青柠口味",
+          "actual_sku": "外星人电解质水青柠口味",
+          "bbox": {
+            "x": 1851,
+            "y": 1838,
+            "width": 154,
+            "height": 330
+          }
+        },
+        {
+          "slot_id": "2-0-1-117",
+          "expected_sku": "外星人电解质水青柠口味0糖",
+          "actual_sku": "外星人电解质水青柠口味0糖",
+          "bbox": {
+            "x": 1598,
+            "y": 1816,
+            "width": 143,
+            "height": 357
+          }
+        },
+        {
+          "slot_id": "2-0-1-131",
+          "expected_sku": "脉动猫薄荷瓶",
+          "actual_sku": "脉动猫薄荷瓶",
+          "bbox": {
+            "x": 1349,
+            "y": 1838,
+            "width": 128,
+            "height": 335
+          }
+        },
+        {
+          "slot_id": "2-0-1-145",
+          "expected_sku": "脉动菠萝口味",
+          "actual_sku": "脉动菠萝口味",
+          "bbox": {
+            "x": 1121,
+            "y": 1840,
+            "width": 121,
+            "height": 311
+          }
+        },
+        {
+          "slot_id": "2-0-1-153",
+          "expected_sku": "脉动芒果口味",
+          "actual_sku": "脉动芒果口味",
+          "bbox": {
+            "x": 981,
+            "y": 1838,
+            "width": 105,
+            "height": 301
+          }
+        },
+        {
+          "slot_id": "2-0-1-161",
+          "expected_sku": "脉动观梅止渴饮",
+          "actual_sku": "脉动观梅止渴饮",
+          "bbox": {
+            "x": 828,
+            "y": 1831,
+            "width": 133,
+            "height": 313
+          }
+        },
+        {
+          "slot_id": "2-0-2-13",
+          "expected_sku": "百岁山矿泉水",
+          "actual_sku": "百岁山矿泉水",
+          "bbox": {
+            "x": 3443,
+            "y": 1279,
+            "width": 147,
+            "height": 392
+          }
+        },
+        {
+          "slot_id": "2-0-2-27",
+          "expected_sku": "百岁山矿泉水",
+          "actual_sku": "百岁山矿泉水",
+          "bbox": {
+            "x": 3205,
+            "y": 1272,
+            "width": 128,
+            "height": 389
+          }
+        },
+        {
+          "slot_id": "2-0-2-38",
+          "expected_sku": "百岁山矿泉水",
+          "actual_sku": "百岁山矿泉水",
+          "bbox": {
+            "x": 3015,
+            "y": 1279,
+            "width": 102,
+            "height": 390
+          }
+        },
+        {
+          "slot_id": "2-0-2-52",
+          "expected_sku": "尖叫",
+          "actual_sku": "尖叫",
+          "bbox": {
+            "x": 2751,
+            "y": 1286,
+            "width": 136,
+            "height": 378
+          }
+        },
+        {
+          "slot_id": "2-0-2-68",
+          "expected_sku": "尖叫",
+          "actual_sku": "尖叫",
+          "bbox": {
+            "x": 2432,
+            "y": 1281,
+            "width": 166,
+            "height": 397
+          }
+        },
+        {
+          "slot_id": "2-0-2-81",
+          "expected_sku": "尖叫",
+          "actual_sku": "尖叫",
+          "bbox": {
+            "x": 2216,
+            "y": 1276,
+            "width": 150,
+            "height": 393
+          }
+        },
+        {
+          "slot_id": "2-0-2-101",
+          "expected_sku": "外星人电解质水西柚口味",
+          "actual_sku": "外星人电解质水西柚口味",
+          "bbox": {
+            "x": 1855,
+            "y": 1293,
+            "width": 150,
+            "height": 397
+          }
+        },
+        {
+          "slot_id": "2-0-2-119",
+          "expected_sku": "外星人电解质水西柚口味",
+          "actual_sku": "外星人电解质水西柚口味",
+          "bbox": {
+            "x": 1531,
+            "y": 1305,
+            "width": 153,
+            "height": 376
+          }
+        },
+        {
+          "slot_id": "2-0-2-131",
+          "expected_sku": "外星人电解质水白桃口味0糖",
+          "actual_sku": "外星人电解质水白桃口味0糖",
+          "bbox": {
+            "x": 1313,
+            "y": 1308,
+            "width": 150,
+            "height": 356
+          }
+        },
+        {
+          "slot_id": "2-0-2-156",
+          "expected_sku": "外星人电解质水青柠口味",
+          "actual_sku": "外星人电解质水青柠口味",
+          "bbox": {
+            "x": 852,
+            "y": 1308,
+            "width": 181,
+            "height": 385
+          }
+        },
+        {
+          "slot_id": "2-0-2-172",
+          "expected_sku": "外星人电解质水椰子口味",
+          "actual_sku": "外星人电解质水椰子口味",
+          "bbox": {
+            "x": 544,
+            "y": 1305,
+            "width": 191,
+            "height": 381
+          }
+        },
+        {
+          "slot_id": "2-0-3-13",
+          "expected_sku": "绿豆冰沙",
+          "actual_sku": "绿豆冰沙",
+          "bbox": {
+            "x": 3503,
+            "y": 837,
+            "width": 161,
+            "height": 277
+          }
+        },
+        {
+          "slot_id": "2-0-3-26",
+          "expected_sku": "绿豆冰沙",
+          "actual_sku": "绿豆冰沙",
+          "bbox": {
+            "x": 3253,
+            "y": 828,
+            "width": 155,
+            "height": 284
+          }
+        },
+        {
+          "slot_id": "2-0-3-40",
+          "expected_sku": "东方树叶茉莉花茶",
+          "actual_sku": "东方树叶茉莉花茶",
+          "bbox": {
+            "x": 3013,
+            "y": 842,
+            "width": 116,
+            "height": 279
+          }
+        },
+        {
+          "slot_id": "2-0-3-53",
+          "expected_sku": "东方树叶茉莉花茶",
+          "actual_sku": "东方树叶茉莉花茶",
+          "bbox": {
+            "x": 2761,
+            "y": 847,
+            "width": 106,
+            "height": 284
+          }
+        },
+        {
+          "slot_id": "2-0-3-70",
+          "expected_sku": "名仁苏打水饮料",
+          "actual_sku": "名仁苏打水饮料",
+          "bbox": {
+            "x": 2444,
+            "y": 830,
+            "width": 106,
+            "height": 291
+          }
+        },
+        {
+          "slot_id": "2-0-3-83",
+          "expected_sku": "名仁苏打水饮料",
+          "actual_sku": "名仁苏打水饮料",
+          "bbox": {
+            "x": 2208,
+            "y": 825,
+            "width": 105,
+            "height": 294
+          }
+        },
+        {
+          "slot_id": "2-0-3-99",
+          "expected_sku": "名仁苏打水饮料",
+          "actual_sku": "名仁苏打水饮料",
+          "bbox": {
+            "x": 1875,
+            "y": 823,
+            "width": 145,
+            "height": 310
+          }
+        },
+        {
+          "slot_id": "2-0-3-113",
+          "expected_sku": "美年达瓶装",
+          "actual_sku": "美年达瓶装",
+          "bbox": {
+            "x": 1623,
+            "y": 832,
+            "width": 121,
+            "height": 297
+          }
+        },
+        {
+          "slot_id": "2-0-3-126",
+          "expected_sku": "美年达瓶装",
+          "actual_sku": "美年达瓶装",
+          "bbox": {
+            "x": 1370,
+            "y": 854,
+            "width": 134,
+            "height": 277
+          }
+        },
+        {
+          "slot_id": "2-0-3-142",
+          "expected_sku": "小青柠汁饮料",
+          "actual_sku": "小青柠汁饮料",
+          "bbox": {
+            "x": 1085,
+            "y": 840,
+            "width": 111,
+            "height": 289
+          }
+        },
+        {
+          "slot_id": "2-0-3-155",
+          "expected_sku": "小青柠汁饮料",
+          "actual_sku": "小青柠汁饮料",
+          "bbox": {
+            "x": 835,
+            "y": 849,
+            "width": 138,
+            "height": 280
+          }
+        },
+        {
+          "slot_id": "2-0-3-169",
+          "expected_sku": "小青柠汁饮料",
+          "actual_sku": "小青柠汁饮料",
+          "bbox": {
+            "x": 576,
+            "y": 835,
+            "width": 140,
+            "height": 301
+          }
+        },
+        {
+          "slot_id": "2-0-4-8",
+          "expected_sku": "水溶C100瓶装",
+          "actual_sku": "水溶C100瓶装",
+          "bbox": {
+            "x": 3668,
+            "y": 257,
+            "width": 117,
+            "height": 260
+          }
+        },
+        {
+          "slot_id": "2-0-4-23",
+          "expected_sku": "水溶C100瓶装",
+          "actual_sku": "水溶C100瓶装",
+          "bbox": {
+            "x": 3361,
+            "y": 271,
+            "width": 119,
+            "height": 255
+          }
+        },
+        {
+          "slot_id": "2-0-4-37",
+          "expected_sku": "7喜瓶装",
+          "actual_sku": "7喜瓶装",
+          "bbox": {
+            "x": 3092,
+            "y": 254,
+            "width": 124,
+            "height": 277
+          }
+        },
+        {
+          "slot_id": "2-0-4-53",
+          "expected_sku": "7喜瓶装",
+          "actual_sku": "7喜瓶装",
+          "bbox": {
+            "x": 2766,
+            "y": 285,
+            "width": 130,
+            "height": 263
+          }
+        },
+        {
+          "slot_id": "2-0-4-69",
+          "expected_sku": "百事可乐瓶装",
+          "actual_sku": "百事可乐瓶装",
+          "bbox": {
+            "x": 2465,
+            "y": 317,
+            "width": 119,
+            "height": 226
+          }
+        },
+        {
+          "slot_id": "2-0-4-80",
+          "expected_sku": "百事可乐瓶装",
+          "actual_sku": "百事可乐瓶装",
+          "bbox": {
+            "x": 2242,
+            "y": 264,
+            "width": 124,
+            "height": 274
+          }
+        },
+        {
+          "slot_id": "2-0-4-100",
+          "expected_sku": "芬达罐装",
+          "actual_sku": "芬达罐装",
+          "bbox": {
+            "x": 1834,
+            "y": 276,
+            "width": 131,
+            "height": 267
+          }
+        },
+        {
+          "slot_id": "2-0-4-114",
+          "expected_sku": "雪碧罐装",
+          "actual_sku": "雪碧罐装",
+          "bbox": {
+            "x": 1558,
+            "y": 293,
+            "width": 140,
+            "height": 257
+          }
+        },
+        {
+          "slot_id": "2-0-4-129",
+          "expected_sku": "雪碧罐装",
+          "actual_sku": "雪碧罐装",
+          "bbox": {
+            "x": 1279,
+            "y": 271,
+            "width": 145,
+            "height": 282
+          }
+        },
+        {
+          "slot_id": "2-0-4-146",
+          "expected_sku": "可口可乐罐装",
+          "actual_sku": "可口可乐罐装",
+          "bbox": {
+            "x": 948,
+            "y": 269,
+            "width": 145,
+            "height": 284
+          }
+        },
+        {
+          "slot_id": "2-0-4-158",
+          "expected_sku": "可口可乐罐装",
+          "actual_sku": "可口可乐罐装",
+          "bbox": {
+            "x": 710,
+            "y": 273,
+            "width": 157,
+            "height": 272
+          }
+        },
+        {
+          "slot_id": "2-0-4-170",
+          "expected_sku": "可口可乐罐装",
+          "actual_sku": "可口可乐罐装",
+          "bbox": {
+            "x": 470,
+            "y": 288,
+            "width": 169,
+            "height": 269
+          }
+        }
+      ]
+    },
+    "1": {
+      "image_file": "data/shelf_images/2/+x_0.png",
+      "image_hash": "sha256:f19c60993178cd70533dbec0bc312f5ed465b33b924ecc854b0a9f7fc7d4a313",
+      "layers": {
+        "0": [
+          {
+            "x": 633,
+            "y": 2257
+          },
+          {
+            "x": 3583,
+            "y": 2243
+          },
+          {
+            "x": 3557,
+            "y": 2675
+          },
+          {
+            "x": 628,
+            "y": 2699
+          }
+        ],
+        "1": [
+          {
+            "x": 623,
+            "y": 1806
+          },
+          {
+            "x": 3576,
+            "y": 1794
+          },
+          {
+            "x": 3554,
+            "y": 2209
+          },
+          {
+            "x": 630,
+            "y": 2202
+          }
+        ],
+        "2": [
+          {
+            "x": 623,
+            "y": 1303
+          },
+          {
+            "x": 3590,
+            "y": 1327
+          },
+          {
+            "x": 3549,
+            "y": 1742
+          },
+          {
+            "x": 640,
+            "y": 1751
+          }
+        ],
+        "3": [
+          {
+            "x": 583,
+            "y": 807
+          },
+          {
+            "x": 3643,
+            "y": 811
+          },
+          {
+            "x": 3592,
+            "y": 1255
+          },
+          {
+            "x": 625,
+            "y": 1260
+          }
+        ],
+        "4": [
+          {
+            "x": 559,
+            "y": 363
+          },
+          {
+            "x": 3607,
+            "y": 394
+          },
+          {
+            "x": 3623,
+            "y": 749
+          },
+          {
+            "x": 580,
+            "y": 752
+          }
+        ]
+      },
+      "slots": [
+        {
+          "slot_id": "2-1-0-18",
+          "expected_sku": "拖鞋",
+          "actual_sku": "拖鞋",
+          "bbox": {
+            "x": 687,
+            "y": 2319,
+            "width": 483,
+            "height": 325
+          }
+        },
+        {
+          "slot_id": "2-1-0-47",
+          "expected_sku": "拖鞋",
+          "actual_sku": "拖鞋",
+          "bbox": {
+            "x": 1181,
+            "y": 2302,
+            "width": 424,
+            "height": 340
+          }
+        },
+        {
+          "slot_id": "2-1-0-75",
+          "expected_sku": "拖鞋",
+          "actual_sku": "拖鞋",
+          "bbox": {
+            "x": 1639,
+            "y": 2307,
+            "width": 402,
+            "height": 330
+          }
+        },
+        {
+          "slot_id": "2-1-0-106",
+          "expected_sku": "心相印厨房纸巾",
+          "actual_sku": "心相印厨房纸巾",
+          "bbox": {
+            "x": 2150,
+            "y": 2293,
+            "width": 381,
+            "height": 327
+          }
+        },
+        {
+          "slot_id": "2-1-0-133",
+          "expected_sku": "心相印厨房纸巾",
+          "actual_sku": "心相印厨房纸巾",
+          "bbox": {
+            "x": 2580,
+            "y": 2290,
+            "width": 397,
+            "height": 347
+          }
+        },
+        {
+          "slot_id": "2-1-0-166",
+          "expected_sku": "心相印厨房纸巾",
+          "actual_sku": "心相印厨房纸巾",
+          "bbox": {
+            "x": 3091,
+            "y": 2285,
+            "width": 416,
+            "height": 328
+          }
+        },
+        {
+          "slot_id": "2-1-1-18",
+          "expected_sku": "Dove沐浴泡泡樱花甜香袋装",
+          "actual_sku": "Dove沐浴泡泡樱花甜香袋装",
+          "bbox": {
+            "x": 806,
+            "y": 1887,
+            "width": 207,
+            "height": 302
+          }
+        },
+        {
+          "slot_id": "2-1-1-34",
+          "expected_sku": "半亩花田洗发水",
+          "actual_sku": "半亩花田洗发水",
+          "bbox": {
+            "x": 1093,
+            "y": 1889,
+            "width": 130,
+            "height": 288
+          }
+        },
+        {
+          "slot_id": "2-1-1-51",
+          "expected_sku": "半亩花田洗发水",
+          "actual_sku": "半亩花田洗发水",
+          "bbox": {
+            "x": 1355,
+            "y": 1887,
+            "width": 128,
+            "height": 285
+          }
+        },
+        {
+          "slot_id": "2-1-1-66",
+          "expected_sku": "半亩花田洗发水",
+          "actual_sku": "半亩花田洗发水",
+          "bbox": {
+            "x": 1599,
+            "y": 1858,
+            "width": 125,
+            "height": 326
+          }
+        },
+        {
+          "slot_id": "2-1-1-83",
+          "expected_sku": "半亩花田洗发水",
+          "actual_sku": "半亩花田洗发水",
+          "bbox": {
+            "x": 1866,
+            "y": 1877,
+            "width": 118,
+            "height": 309
+          }
+        },
+        {
+          "slot_id": "2-1-1-111",
+          "expected_sku": "心相印厨房纸巾",
+          "actual_sku": "心相印厨房纸巾",
+          "bbox": {
+            "x": 2169,
+            "y": 1844,
+            "width": 414,
+            "height": 337
+          }
+        },
+        {
+          "slot_id": "2-1-1-138",
+          "expected_sku": "心相印厨房纸巾",
+          "actual_sku": "心相印厨房纸巾",
+          "bbox": {
+            "x": 2625,
+            "y": 1865,
+            "width": 362,
+            "height": 333
+          }
+        },
+        {
+          "slot_id": "2-1-1-162",
+          "expected_sku": "心相印厨房纸巾",
+          "actual_sku": "心相印厨房纸巾",
+          "bbox": {
+            "x": 3005,
+            "y": 1870,
+            "width": 421,
+            "height": 319
+          }
+        },
+        {
+          "slot_id": "2-1-2-11",
+          "expected_sku": "Dove沐浴泡泡樱花甜香",
+          "actual_sku": "Dove沐浴泡泡樱花甜香",
+          "bbox": {
+            "x": 751,
+            "y": 1422,
+            "width": 157,
+            "height": 299
+          }
+        },
+        {
+          "slot_id": "2-1-2-28",
+          "expected_sku": "Dove沐浴泡泡白桃果香",
+          "actual_sku": "Dove沐浴泡泡白桃果香",
+          "bbox": {
+            "x": 1031,
+            "y": 1412,
+            "width": 149,
+            "height": 321
+          }
+        },
+        {
+          "slot_id": "2-1-2-42",
+          "expected_sku": "Dove沐浴泡泡清甜奶香",
+          "actual_sku": "Dove沐浴泡泡清甜奶香",
+          "bbox": {
+            "x": 1267,
+            "y": 1419,
+            "width": 147,
+            "height": 314
+          }
+        },
+        {
+          "slot_id": "2-1-2-57",
+          "expected_sku": "威露士",
+          "actual_sku": "威露士",
+          "bbox": {
+            "x": 1508,
+            "y": 1505,
+            "width": 163,
+            "height": 225
+          }
+        },
+        {
+          "slot_id": "2-1-2-70",
+          "expected_sku": "Dove沐浴乳",
+          "actual_sku": "Dove沐浴乳",
+          "bbox": {
+            "x": 1744,
+            "y": 1488,
+            "width": 126,
+            "height": 247
+          }
+        },
+        {
+          "slot_id": "2-1-2-80",
+          "expected_sku": "Dove沐浴乳",
+          "actual_sku": "Dove沐浴乳",
+          "bbox": {
+            "x": 1914,
+            "y": 1491,
+            "width": 111,
+            "height": 247
+          }
+        },
+        {
+          "slot_id": "2-1-2-109",
+          "expected_sku": "拖鞋",
+          "actual_sku": "拖鞋",
+          "bbox": {
+            "x": 2191,
+            "y": 1412,
+            "width": 502,
+            "height": 314
+          }
+        },
+        {
+          "slot_id": "2-1-2-151",
+          "expected_sku": "拖鞋",
+          "actual_sku": "拖鞋",
+          "bbox": {
+            "x": 2861,
+            "y": 1417,
+            "width": 445,
+            "height": 304
+          }
+        },
+        {
+          "slot_id": "2-1-3-9",
+          "expected_sku": "舒克牙膏竹炭薄荷",
+          "actual_sku": "舒克牙膏竹炭薄荷",
+          "bbox": {
+            "x": 699,
+            "y": 921,
+            "width": 132,
+            "height": 325
+          }
+        },
+        {
+          "slot_id": "2-1-3-25",
+          "expected_sku": "舒克牙膏柠檬百香果",
+          "actual_sku": "舒克牙膏柠檬百香果",
+          "bbox": {
+            "x": 947,
+            "y": 916,
+            "width": 144,
+            "height": 330
+          }
+        },
+        {
+          "slot_id": "2-1-3-39",
+          "expected_sku": "舒克牙膏海盐薄荷",
+          "actual_sku": "舒克牙膏海盐薄荷",
+          "bbox": {
+            "x": 1205,
+            "y": 923,
+            "width": 108,
+            "height": 330
+          }
+        },
+        {
+          "slot_id": "2-1-3-63",
+          "expected_sku": "冷酸灵云感觉牙刷",
+          "actual_sku": "冷酸灵云感觉牙刷",
+          "bbox": {
+            "x": 1506,
+            "y": 1188,
+            "width": 290,
+            "height": 68
+          }
+        },
+        {
+          "slot_id": "2-1-3-100",
+          "expected_sku": "杯子",
+          "actual_sku": "杯子",
+          "bbox": {
+            "x": 2160,
+            "y": 1109,
+            "width": 187,
+            "height": 139
+          }
+        },
+        {
+          "slot_id": "2-1-3-118",
+          "expected_sku": "杯子",
+          "actual_sku": "杯子",
+          "bbox": {
+            "x": 2449,
+            "y": 1107,
+            "width": 211,
+            "height": 144
+          }
+        },
+        {
+          "slot_id": "2-1-3-133",
+          "expected_sku": "杯子",
+          "actual_sku": "杯子",
+          "bbox": {
+            "x": 2699,
+            "y": 1097,
+            "width": 204,
+            "height": 142
+          }
+        },
+        {
+          "slot_id": "2-1-3-151",
+          "expected_sku": "杯子",
+          "actual_sku": "杯子",
+          "bbox": {
+            "x": 2976,
+            "y": 1090,
+            "width": 223,
+            "height": 156
+          }
+        },
+        {
+          "slot_id": "2-1-3-168",
+          "expected_sku": "杯子",
+          "actual_sku": "杯子",
+          "bbox": {
+            "x": 3248,
+            "y": 1102,
+            "width": 223,
+            "height": 142
+          }
+        },
+        {
+          "slot_id": "2-1-4-10",
+          "expected_sku": "舒肤佳香皂柠檬清新香型",
+          "actual_sku": "舒肤佳香皂柠檬清新香型",
+          "bbox": {
+            "x": 654,
+            "y": 651,
+            "width": 192,
+            "height": 96
+          }
+        },
+        {
+          "slot_id": "2-1-4-26",
+          "expected_sku": "舒肤佳香皂芦荟呵护香型",
+          "actual_sku": "舒肤佳香皂芦荟呵护香型",
+          "bbox": {
+            "x": 957,
+            "y": 649,
+            "width": 182,
+            "height": 89
+          }
+        },
+        {
+          "slot_id": "2-1-4-45",
+          "expected_sku": "舒肤佳香皂柠檬清新香型",
+          "actual_sku": "舒肤佳香皂柠檬清新香型",
+          "bbox": {
+            "x": 1281,
+            "y": 656,
+            "width": 192,
+            "height": 89
+          }
+        },
+        {
+          "slot_id": "2-1-4-59",
+          "expected_sku": "汰渍肥皂",
+          "actual_sku": "汰渍肥皂",
+          "bbox": {
+            "x": 1530,
+            "y": 660,
+            "width": 194,
+            "height": 85
+          }
+        },
+        {
+          "slot_id": "2-1-4-76",
+          "expected_sku": "汰渍肥皂",
+          "actual_sku": "汰渍肥皂",
+          "bbox": {
+            "x": 1807,
+            "y": 660,
+            "width": 213,
+            "height": 78
+          }
+        },
+        {
+          "slot_id": "2-1-4-132",
+          "expected_sku": "杯子",
+          "actual_sku": "杯子",
+          "bbox": {
+            "x": 2728,
+            "y": 620,
+            "width": 204,
+            "height": 111
+          }
+        },
+        {
+          "slot_id": "2-1-4-152",
+          "expected_sku": "杯子",
+          "actual_sku": "杯子",
+          "bbox": {
+            "x": 3048,
+            "y": 610,
+            "width": 182,
+            "height": 121
+          }
+        },
+        {
+          "slot_id": "2-1-4-168",
+          "expected_sku": "杯子",
+          "actual_sku": "杯子",
+          "bbox": {
+            "x": 3282,
+            "y": 622,
+            "width": 211,
+            "height": 116
+          }
+        }
+      ]
+    }
+  }
+}
