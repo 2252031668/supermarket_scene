@@ -130,13 +130,16 @@ def slot_bbox_in_current(
     return (left, top, right - left, bottom - top) if right > left and bottom > top else None
 
 
-def reference_images_by_sku(slots: list[dict[str, Any]]) -> dict[str, list[Path]]:
+def reference_images_by_sku(slots: list[dict[str, Any]], sku_images: dict[str, Path] | None = None) -> dict[str, list[Path]]:
     references: dict[str, list[Path]] = {}
+    for sku, image in (sku_images or {}).items():
+        if image.is_file():
+            references[sku] = [image]
     for slot in slots:
         slot_id = str(slot.get("slot_id", "")).strip()
         sku = str(slot.get("expected_sku", "")).strip()
         image = Path(PROJECT_ROOT) / "data" / "item_images" / slot_id / "0.png"
-        if slot_id and sku and image.is_file():
+        if slot_id and sku and sku not in references and image.is_file():
             references.setdefault(sku, []).append(image)
     return references
 
@@ -614,7 +617,7 @@ def run_inspection(current_source: Path | np.ndarray, config: dict[str, Any],
         roi_y:roi_y + roi_height, roi_x:roi_x + roi_width
     ]
     slots = match["calibration_data"].get("slots", [])
-    references = reference_images_by_sku(slots)
+    references = reference_images_by_sku(slots, config.get("_sku_images"))
     rows: list[dict[str, Any]] = []
     candidate_boxes: list[dict[str, Any]] = []
     skipped_edge_slots = 0

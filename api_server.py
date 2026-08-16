@@ -30,13 +30,13 @@ from vision.config import (
     save_inspection_config,
     save_sku_query_config,
 )
-from vision.rgbd_stockout_sku import run_rgbd_stockout
+from vision.rgbd_stockout_sku import run_rgbd_stockout, sku_references
 from vision.rgb_misplacement import run_rgb_misplacement
 from vision.cv_restock_position import run_inspection
 from vision.dino import preload_dino
 from vision.owlv2 import preload_owlv2, run_owlv2_sku_query
 from vision.image_stitch import rectify_stitched_image, run_image_stitch
-from vision.vlm_sku_query import generate_owlv2_prompt, run_vlm_sku_query
+from vision.vlm_sku_query import generate_grouped_owlv2_prompts, generate_owlv2_prompt, run_vlm_sku_query
 from scene_geometry import delivery_table_spec
 from shelf_database import ShelfDatabase
 import calibration_manager
@@ -46,6 +46,7 @@ import robot_service
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("SHELF_DB_PATH", os.path.join(BASE_DIR, "shelf_inventory.db"))
 ITEM_IMAGES_DIR = os.path.join(BASE_DIR, "data", "item_images")
+SKU_IMAGES_DIR = Path(BASE_DIR) / "data" / "sku_images"
 SHELF_IMAGES_DIR = os.path.join(BASE_DIR, "data", "shelf_images")
 VISION_OUTPUT_DIR = Path(BASE_DIR) / "vision" / "output" / "slot_inspection"
 SKU_QUERY_OUTPUT_DIR = Path(BASE_DIR) / "vision" / "output" / "vlm_sku_query"
@@ -66,6 +67,63 @@ def shelf_image_filename(face: int) -> str:
 
 def shelf_image_path(shelf_id: int, face: int) -> str:
     return os.path.join(SHELF_IMAGES_DIR, str(shelf_id), shelf_image_filename(face))
+
+
+def sku_image_path(sku: str) -> Path:
+    if not sku or sku in {".", ".."} or any(character in sku for character in ("/", "\\", "\x00")):
+        raise ValueError("SKU name cannot contain a path separator")
+    return SKU_IMAGES_DIR / f"{sku}.png"
+
+
+def sku_reference_image(payload: dict) -> bytes | None:
+    image_data = payload.get("reference_image_data")
+    if image_data in (None, ""):
+        return None
+    if not isinstance(image_data, str) or not image_data.startswith("data:image/") or ";base64," not in image_data:
+        raise ValueError("reference_image_data must be a base64-encoded image")
+    try:
+        image_bytes = base64.b64decode(image_data.split(",", 1)[1], validate=True)
+    except (ValueError, binascii.Error) as error:
+        raise ValueError("reference_image_data is not valid base64") from error
+    if not image_bytes or len(image_bytes) > 12 * 1024 * 1024:
+        raise ValueError("reference_image_data must be between 1 byte and 12 MB")
+    try:
+        with Image.open(BytesIO(image_bytes)) as source:
+            normalized = source.convert("RGB")
+            output = BytesIO()
+            normalized.save(output, format="PNG")
+            return output.getvalue()
+    except (OSError, ValueError) as error:
+        raise ValueError("reference_image_data cannot be decoded") from error
+
+
+def save_sku_reference_image(sku: str, image_bytes: bytes) -> str:
+    target = sku_image_path(sku)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as staged:
+        staged.write(image_bytes)
+        staged_path = Path(staged.name)
+    os.replace(staged_path, target)
+    return f"data/sku_images/{sku}.png"
+
+
+def normal_sku_slot_image(sku: str) -> Path | None:
+    with ShelfDatabase(DB_PATH) as db:
+        slots = sorted(
+            (slot for slot in db.get_all_slots() if slot.expected_sku == sku and slot.actual_sku == sku),
+            key=lambda slot: (-(slot.width_cm or 0) * (slot.height_cm or 0), slot.slot_id),
+        )
+    return next((path for slot in slots if (path := Path(ITEM_IMAGES_DIR) / slot.slot_id / "0.png").is_file()), None)
+
+
+def sku_prompt_sources(sku: str) -> tuple[tuple[bytes, bytes] | None, str | None]:
+    primary = sku_image_path(sku)
+    if not primary.is_file():
+        return None, "No SKU primary image"
+    normal_image = normal_sku_slot_image(sku)
+    if normal_image is None:
+        return None, "No normal ID image"
+    return (primary.read_bytes(), normal_image.read_bytes()), None
 
 
 def read_number(payload, name, number_type=float, minimum=None):
@@ -227,8 +285,16 @@ def sku_query_reference(query):
     with ShelfDatabase(DB_PATH) as db:
         slot = db.get_slot_by_id(query)
         if slot is not None:
+            sku_info = db.get_sku_info(slot.expected_sku)
+            if sku_info is not None:
+                reference_path = sku_image_path(sku_info.sku)
+                if sku_info.reference_image_path and reference_path.is_file():
+                    return sku_info.sku, None, reference_path
             candidates = [slot]
-        elif db.get_sku_info(query) is not None:
+        elif (sku_info := db.get_sku_info(query)) is not None:
+            reference_path = sku_image_path(sku_info.sku)
+            if sku_info.reference_image_path and reference_path.is_file():
+                return sku_info.sku, None, reference_path
             candidates = sorted(
                 (item for item in db.get_all_slots_world() if item["expected_sku"] == query),
                 key=lambda item: (item["actual_sku"] != query, item["slot_id"]),
@@ -473,6 +539,14 @@ class ApiHandler(BaseHTTPRequestHandler):
                     self.send_json({"error": "Invalid slot ID"}, HTTPStatus.BAD_REQUEST)
                     return
             self.send_file(os.path.join(ITEM_IMAGES_DIR, slot_id, "0.png"), "image/png")
+        elif path.startswith("/api/sku-images/"):
+            sku = unquote(path[len("/api/sku-images/"):]).strip("/")
+            with ShelfDatabase(DB_PATH) as db:
+                info = db.get_sku_info(sku)
+            if info is None or not info.reference_image_path:
+                self.send_json({"error": "SKU image not found"}, HTTPStatus.NOT_FOUND)
+                return
+            self.send_file(sku_image_path(sku), "image/png")
         elif path.startswith("/api/shelf-images/") and path.endswith("/0.png"):
             parts = path.strip("/").split("/")
             if len(parts) != 5:
@@ -529,6 +603,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         items = payload.get("items")
         new_skus = payload.get("new_skus", [])
         sku_prompts = payload.get("sku_prompts", [])
+        sku_metadata = payload.get("sku_metadata", [])
         shelf_image = payload.get("shelf_image")
         layers_data = payload.get("layers", {})
         slots_calib = []
@@ -538,11 +613,15 @@ class ApiHandler(BaseHTTPRequestHandler):
             raise ValueError("new_skus must be a list")
         if not isinstance(sku_prompts, list):
             raise ValueError("sku_prompts must be a list")
+        if not isinstance(sku_metadata, list):
+            raise ValueError("sku_metadata must be a list")
 
         batch_dir = os.path.join(ITEM_IMAGES_DIR, ".staging", uuid.uuid4().hex)
         staged_dirs = []
+        staged_sku_images = []
         db_items = []
         promoted_dirs = []
+        promoted_sku_images = []
         database_imported = False
         staged_shelf_image = None
         shelf_image_target = None
@@ -602,6 +681,26 @@ class ApiHandler(BaseHTTPRequestHandler):
                     "image_dir": relative_dir,
                 })
 
+            prepared_sku_metadata = []
+            for index, item in enumerate(sku_metadata):
+                if not isinstance(item, dict):
+                    raise ValueError("sku_metadata must contain objects")
+                sku = str(item.get("sku", "")).strip()
+                target = sku_image_path(sku)
+                image_bytes = sku_reference_image(item)
+                reference_image_path = ""
+                if image_bytes is not None:
+                    staged_image = os.path.join(batch_dir, f"sku-{index}.png")
+                    with open(staged_image, "wb") as output:
+                        output.write(image_bytes)
+                    staged_sku_images.append((staged_image, target, None))
+                    reference_image_path = f"data/sku_images/{sku}.png"
+                prepared_sku_metadata.append({
+                    "sku": sku,
+                    "reference_image_path": reference_image_path,
+                    "grasp_method": str(item.get("grasp_method", "夹爪")),
+                })
+
             if shelf_image is not None:
                 if not isinstance(shelf_image, dict):
                     raise ValueError("shelf_image must be an object")
@@ -650,6 +749,15 @@ class ApiHandler(BaseHTTPRequestHandler):
             for staged_dir, target_dir in staged_dirs:
                 os.replace(staged_dir, target_dir)
                 promoted_dirs.append(target_dir)
+            for index, (staged_image, target, _backup) in enumerate(staged_sku_images):
+                target.parent.mkdir(parents=True, exist_ok=True)
+                backup = None
+                if target.is_file():
+                    backup = Path(batch_dir) / f"sku-{index}.previous.png"
+                    os.replace(target, backup)
+                os.replace(staged_image, target)
+                staged_sku_images[index] = (staged_image, target, backup)
+                promoted_sku_images.append((target, backup))
             if staged_shelf_image and shelf_image_target:
                 os.makedirs(os.path.dirname(shelf_image_target), exist_ok=True)
                 if os.path.isfile(shelf_image_target):
@@ -658,7 +766,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                 os.replace(staged_shelf_image, shelf_image_target)
                 shelf_image_promoted = True
             with ShelfDatabase(DB_PATH) as db:
-                slot_ids = db.import_slots_batch(new_skus, db_items, sku_prompts)
+                slot_ids = db.import_slots_batch(new_skus, db_items, sku_prompts, prepared_sku_metadata)
             database_imported = True
 
             if cal_shelf_id is not None and cal_face is not None:
@@ -684,11 +792,18 @@ class ApiHandler(BaseHTTPRequestHandler):
 
             if shelf_image_backup and os.path.isfile(shelf_image_backup):
                 os.remove(shelf_image_backup)
+            for _target, backup in promoted_sku_images:
+                if backup is not None and backup.is_file():
+                    backup.unlink()
             self.send_json({"slot_ids": slot_ids, "state": snapshot()}, HTTPStatus.CREATED)
         except Exception:
             if not database_imported:
                 for target_dir in promoted_dirs:
                     shutil.rmtree(target_dir, ignore_errors=True)
+                for target, backup in promoted_sku_images:
+                    target.unlink(missing_ok=True)
+                    if backup is not None and backup.is_file():
+                        os.replace(backup, target)
             if shelf_image_target and shelf_image_promoted:
                 os.remove(shelf_image_target)
             if shelf_image_target and shelf_image_backup and os.path.isfile(shelf_image_backup):
@@ -707,11 +822,19 @@ class ApiHandler(BaseHTTPRequestHandler):
             if not isinstance(item, dict):
                 raise ValueError("requests must contain objects")
             sku = str(item.get("sku", "")).strip()
-            images = item.get("images")
-            if not sku or not isinstance(images, list) or not 1 <= len(images) <= 3:
-                raise ValueError("Each request needs a SKU and one to three images")
+            slot_image = item.get("slot_image")
+            if not sku or not isinstance(slot_image, str):
+                raise ValueError("Each request needs a SKU and one normal slot image")
             sources = []
-            for image_data in images:
+            sku_image = item.get("reference_image_data")
+            if sku_image is None:
+                with ShelfDatabase(DB_PATH) as db:
+                    info = db.get_sku_info(sku)
+                if info is not None and info.reference_image_path and sku_image_path(sku).is_file():
+                    sku_image = "data:image/png;base64," + base64.b64encode(sku_image_path(sku).read_bytes()).decode()
+            for image_data in (sku_image, slot_image):
+                if image_data is None:
+                    continue
                 if not isinstance(image_data, str) or not image_data.startswith("data:image/") or ";base64," not in image_data:
                     raise ValueError("Prompt samples must be base64-encoded images")
                 try:
@@ -723,6 +846,118 @@ class ApiHandler(BaseHTTPRequestHandler):
                 sources.append(image_bytes)
             drafts.append({"sku": sku, "owlv2_prompt": generate_owlv2_prompt(sku, sources)})
         self.send_json({"drafts": drafts}, HTTPStatus.CREATED)
+
+    def _import_sku_image_directory(self, payload):
+        directory = Path(str(payload.get("directory", "")).strip()).expanduser().resolve()
+        if not directory.is_dir():
+            raise ValueError("directory must be an existing directory")
+        imported, skipped = [], []
+        for source in sorted(directory.glob("*.png")):
+            sku = source.stem.strip()
+            try:
+                target = sku_image_path(sku)
+                with Image.open(source) as image:
+                    output = BytesIO()
+                    image.convert("RGB").save(output, format="PNG")
+                with ShelfDatabase(DB_PATH) as db:
+                    current = db.get_sku_info(sku)
+                    save_sku_reference_image(sku, output.getvalue())
+                    if current is None:
+                        db.register_sku(sku, reference_image_path=f"data/sku_images/{sku}.png")
+                    else:
+                        db.update_sku(sku, current.category, current.mesh_file, current.tex_file,
+                                      current.owlv2_prompt, f"data/sku_images/{sku}.png", current.grasp_method)
+                imported.append(sku)
+            except (OSError, ValueError) as error:
+                skipped.append({"file": source.name, "reason": str(error)})
+        self.send_json({"imported": imported, "skipped": skipped, "state": snapshot()}, HTTPStatus.CREATED)
+
+    def _generate_sku_prompts(self, payload):
+        skus = payload.get("skus")
+        if not isinstance(skus, list):
+            raise ValueError("skus must be a list")
+        names = list(dict.fromkeys(str(sku).strip() for sku in skus))
+        if not 2 <= len(names) <= 8:
+            raise ValueError("skus must contain between 2 and 8 unique items")
+        complete, skipped = [], []
+        for value in names:
+            with ShelfDatabase(DB_PATH) as db:
+                exists = db.get_sku_info(value) is not None
+            if not exists:
+                skipped.append({"sku": value, "reason": "SKU not found"})
+                continue
+            sources, reason = sku_prompt_sources(value)
+            if reason:
+                skipped.append({"sku": value, "reason": reason})
+                continue
+            primary, normal = sources
+            complete.append((value, primary, normal))
+        if len(complete) < 2:
+            skipped.extend({"sku": value, "reason": "Need at least two complete SKUs"} for value, _primary, _normal in complete)
+            self.send_json({"drafts": [], "skipped": skipped}, HTTPStatus.CREATED)
+            return
+        generated = generate_grouped_owlv2_prompts(complete)
+        drafts = [{"sku": value, "owlv2_prompt": generated[value]} for value, _primary, _normal in complete]
+        self.send_json({"drafts": drafts, "skipped": skipped}, HTTPStatus.CREATED)
+
+    def _delete_skus(self, payload):
+        skus = payload.get("skus")
+        if not isinstance(skus, list):
+            raise ValueError("skus must be a list")
+        names = list(dict.fromkeys(str(sku).strip() for sku in skus))
+        with ShelfDatabase(DB_PATH) as db:
+            deleted = db.delete_skus_to_unknown(names)
+        for sku in deleted:
+            sku_image_path(sku).unlink(missing_ok=True)
+        self.send_json({"deleted": deleted, "state": snapshot()})
+
+    def _save_sku_batch(self, payload):
+        rows = payload.get("skus")
+        if not isinstance(rows, list) or not rows:
+            raise ValueError("skus must be a non-empty list")
+        names = [str(row.get("sku", "")).strip() for row in rows if isinstance(row, dict)]
+        if len(names) != len(rows) or any(not name for name in names) or len(set(names)) != len(names):
+            raise ValueError("SKU names must be non-empty and unique")
+        for row in rows:
+            sku = str(row["sku"]).strip()
+            original = str(row.get("original_sku", sku)).strip()
+            image_bytes = sku_reference_image(row)
+            with ShelfDatabase(DB_PATH) as db:
+                current = db.get_sku_info(original)
+                if current is None:
+                    if original != sku:
+                        raise ValueError(f"SKU {original} does not exist")
+                    db.register_sku(sku, str(row.get("category", "")), str(row.get("mesh_file", "")),
+                                    str(row.get("tex_file", "")), str(row.get("owlv2_prompt", "")),
+                                    "", str(row.get("grasp_method", "夹爪")),
+                                    str(row.get("qwen_grounding_prompt", "")))
+                    current = db.get_sku_info(sku)
+                elif original != sku:
+                    old_path, new_path = sku_image_path(original), sku_image_path(sku)
+                    moved = False
+                    if old_path.is_file():
+                        if new_path.exists():
+                            raise ValueError(f"SKU image already exists for {sku}")
+                        os.replace(old_path, new_path)
+                        moved = True
+                    try:
+                        current = db.rename_sku(
+                            original, sku,
+                            f"data/sku_images/{sku}.png" if current.reference_image_path else "",
+                        )
+                    except Exception:
+                        if moved:
+                            os.replace(new_path, old_path)
+                        raise
+                reference_path = current.reference_image_path
+                if image_bytes is not None:
+                    reference_path = save_sku_reference_image(sku, image_bytes)
+                db.update_sku(sku, str(row.get("category", current.category)),
+                              str(row.get("mesh_file", current.mesh_file)), str(row.get("tex_file", current.tex_file)),
+                              str(row.get("owlv2_prompt", current.owlv2_prompt)), reference_path,
+                              str(row.get("grasp_method", current.grasp_method)),
+                              str(row.get("qwen_grounding_prompt", current.qwen_grounding_prompt)))
+        self.send_json({"state": snapshot()})
 
     def _ground_products(self, payload):
         """Run Ark grounding on a browser-provided photo without exposing the API key."""
@@ -773,6 +1008,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         if not image_bytes or len(image_bytes) > 12 * 1024 * 1024 or current_image is None:
             raise ValueError("Photo must be between 1 byte and 12 MB")
         config = inspection_config(payload.get("config", {}))
+        config["_sku_images"] = sku_references(DB_PATH, ITEM_IMAGES_DIR)
         debug = read_debug(payload)
         run_dir = vision_run_directory(uuid.uuid4().hex) if debug else None
         report = run_inspection(current_image, config, run_dir, debug=debug)
@@ -966,7 +1202,7 @@ class ApiHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = urlparse(self.path).path
         try:
-            payload = self.read_json(96 * 1024 * 1024 if path == "/api/image-stitch" else 20 * 1024 * 1024 if path in {"/api/imports/manual", "/api/grounding/products", "/api/vision/inspect", "/api/sku-query", "/api/sku-prompts/owlv2", "/api/rgb-misplacement/runs"} else 64 * 1024)
+            payload = self.read_json(96 * 1024 * 1024 if path == "/api/image-stitch" else 64 * 1024 * 1024 if path == "/api/skus/batch" else 20 * 1024 * 1024 if path in {"/api/imports/manual", "/api/grounding/products", "/api/vision/inspect", "/api/sku-query", "/api/sku-prompts/owlv2", "/api/rgb-misplacement/runs"} else 64 * 1024)
             if path == "/api/shelves":
                 with ShelfDatabase(DB_PATH) as db:
                     shelf_id = db.add_shelf_group(
@@ -992,13 +1228,19 @@ class ApiHandler(BaseHTTPRequestHandler):
                 sku = str(payload.get("sku", "")).strip()
                 if not sku:
                     raise ValueError("sku is required")
+                reference_image = sku_reference_image(payload)
                 with ShelfDatabase(DB_PATH) as db:
                     if db.get_sku_info(sku) is not None:
                         self.send_json({"error": "SKU already exists"}, HTTPStatus.CONFLICT)
                         return
+                    reference_image_path = ""
+                    if reference_image is not None:
+                        reference_image_path = save_sku_reference_image(sku, reference_image)
                     db.register_sku(sku, str(payload.get("category", "")),
                                     str(payload.get("mesh_file", "")), str(payload.get("tex_file", "")),
-                                    str(payload.get("owlv2_prompt", "")))
+                                    str(payload.get("owlv2_prompt", "")), reference_image_path,
+                                    str(payload.get("grasp_method", "夹爪")),
+                                    str(payload.get("qwen_grounding_prompt", "")))
                 self.send_json({"state": snapshot()}, HTTPStatus.CREATED)
                 return
             if path == "/api/slots":
@@ -1053,6 +1295,18 @@ class ApiHandler(BaseHTTPRequestHandler):
             if path == "/api/sku-prompts/owlv2":
                 self._draft_owlv2_prompts(payload)
                 return
+            if path == "/api/skus/import-image-directory":
+                self._import_sku_image_directory(payload)
+                return
+            if path == "/api/skus/prompts/generate":
+                self._generate_sku_prompts(payload)
+                return
+            if path == "/api/skus/delete":
+                self._delete_skus(payload)
+                return
+            if path == "/api/skus/batch":
+                self._save_sku_batch(payload)
+                return
             if path == "/api/grounding/products":
                 self._ground_products(payload)
                 return
@@ -1104,10 +1358,20 @@ class ApiHandler(BaseHTTPRequestHandler):
                 sku = unquote(path[len("/api/skus/"):]).strip("/")
                 if not sku:
                     raise ValueError("SKU is required")
+                reference_image = sku_reference_image(payload)
                 with ShelfDatabase(DB_PATH) as db:
+                    current = db.get_sku_info(sku)
+                    if current is None:
+                        self.send_json({"error": "SKU not found"}, HTTPStatus.NOT_FOUND)
+                        return
+                    reference_image_path = current.reference_image_path
+                    if reference_image is not None:
+                        reference_image_path = save_sku_reference_image(sku, reference_image)
                     db.update_sku(
                         sku, str(payload.get("category", "")), str(payload.get("mesh_file", "")),
                         str(payload.get("tex_file", "")), str(payload.get("owlv2_prompt", "")),
+                        reference_image_path, str(payload.get("grasp_method", current.grasp_method)),
+                        str(payload.get("qwen_grounding_prompt", current.qwen_grounding_prompt)),
                     )
                 self.send_json({"state": snapshot()})
                 return
@@ -1250,7 +1514,10 @@ class ApiHandler(BaseHTTPRequestHandler):
             if path.startswith("/api/skus/"):
                 sku = unquote(path.rsplit("/", 1)[1])
                 with ShelfDatabase(DB_PATH) as db:
+                    info = db.get_sku_info(sku)
                     db.remove_sku_from_catalog(sku)
+                if info is not None and info.reference_image_path:
+                    sku_image_path(sku).unlink(missing_ok=True)
                 self.send_json({"removed": sku, "state": snapshot()})
                 return
             self.send_json({"error": "Not found"}, HTTPStatus.NOT_FOUND)

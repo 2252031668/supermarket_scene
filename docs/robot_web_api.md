@@ -23,7 +23,7 @@ Content-Type: application/json
 | 货架巡检 | `POST /api/vision/inspect` | `image_data`、可选 `config`、`debug` | `{"report":{"shelf_id":3,"face":0,"slots":[...]}}` |
 | RGB-D 测试样本 | `GET /api/rgbd-stockout/samples` | 无 | `{"samples":["正面图",...]}` |
 | RGB-D 比赛巡检 | `POST /api/rgbd-stockout/runs` | 样本目录名、`debug` | `{"report":{"candidates":[...]}}` |
-| 货物查询 | `POST /api/sku-query` | `image_data`、`query`、`provider`、`model`、可选 `config`、`debug` | `{"report":{"sku":"...","reference_slot_id":"...","detected_boxes":[...]}}` |
+| 货物查询 | `POST /api/sku-query` | `image_data`、`query`、`provider`、`model`、可选 `config`、`debug` | `{"report":{"sku":"...","reference_slot_id":null,"detected_boxes":[...]}}`；使用 SKU 主图时 `reference_slot_id` 为 `null` |
 | 查询 slot 坐标 | `GET /api/slots/{slot_id}/world-position` | URL 中的 `slot_id` | `{"slot":{...}}` |
 | 查询 SKU 位置 | `GET /api/skus/{sku}/world-positions` | URL 中的 SKU | `{"sku":"...","positions":[...]}` |
 | 查询缺货 / 错放 | `GET /api/shortages` / `GET /api/misplacements` | 无 | `{"slots":[{...}]}` |
@@ -183,7 +183,7 @@ POST /api/sku-query
 }
 ```
 
-`query` 必须是已有 SKU 或已有 `slot_id`。输入 `slot_id` 时直接使用其 `data/item_images/{slot_id}/0.png`；输入 SKU 时，优先选择 `expected_sku == actual_sku == query` 且已有裁剪图的正常 slot，再按 `slot_id` 选择；没有正常样本才回退到其他有图的应摆 slot。`provider` 可以是 `ark`、`siliconflow`、`dashscope` 或 `local`。云端来源时 `model` 必填；`local` 固定使用 `google/owlv2-large-patch14-ensemble`，忽略 `model`，并要求 SKU 的 `owlv2_prompt` 已审核且非空。`owlv2_score_threshold` 先过滤 OWLv2 候选；未开启 `dino_fallback` 时直接返回 OWLv2 前 `max_boxes` 个框，开启后会让所有 OWLv2 候选进入 DINO 参考图相似度排序，再返回 DINO 前 `max_boxes` 个框。
+`query` 必须是已有 SKU 或已有 `slot_id`。如果 SKU 有 `data/sku_images/<SKU>.png`，输入 SKU 或 slot ID 都优先使用该主图；否则输入 slot ID 回退到 `data/item_images/{slot_id}/0.png`，输入 SKU 再按正常 slot、`slot_id` 回退。主图命中时 `reference_slot_id` 为 `null`。`provider` 可以是 `ark`、`siliconflow`、`dashscope` 或 `local`。云端来源时 `model` 必填；`local` 固定使用 `google/owlv2-large-patch14-ensemble`，忽略 `model`，并要求 SKU 的 `owlv2_prompt` 已审核且非空。`owlv2_score_threshold` 先过滤 OWLv2 候选；未开启 `dino_fallback` 时直接返回 OWLv2 前 `max_boxes` 个框，开启后会让所有 OWLv2 候选进入 DINO 参考图相似度排序，再返回 DINO 前 `max_boxes` 个框。
 
 成功返回 `201 Created`：
 

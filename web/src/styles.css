@@ -227,6 +227,23 @@ button { cursor: pointer; }
 .sku-prompt-review small { color: #657d82; font-size: 10px; }
 .sku-prompt-review label { grid-column: 1 / -1; display: grid; grid-template-columns: 180px minmax(180px, 1fr) auto; align-items: center; gap: 9px; color: #40545a; font-size: 11px; }
 .sku-prompt-review input { min-width: 0; height: 29px; padding: 0 7px; border: 1px solid #cad7d9; border-radius: 3px; color: #30464b; }
+.sku-reference-editor { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.sku-reference-preview { width: 72px; height: 64px; display: grid; place-items: center; overflow: hidden; border: 1px solid #cad7d9; background: #f3f7f7; color: #657d82; font-size: 10px; }
+.sku-reference-preview img { width: 100%; height: 100%; object-fit: contain; }
+.sku-metadata-row { grid-column: 1 / -1; display: grid; grid-template-columns: 72px minmax(90px, .5fr) minmax(110px, .7fr) minmax(110px, .7fr) minmax(220px, 2fr); align-items: center; gap: 9px; padding-top: 8px; border-top: 1px solid #e6edef; color: #40545a; font-size: 11px; }
+.sku-metadata-row .sku-reference-preview { width: 62px; height: 52px; }
+.sku-metadata-row .sku-file-input { grid-column: auto; display: block; color: #2d6866; cursor: pointer; }
+.sku-file-input input { display: block; width: 100%; height: auto; padding: 4px 0; border: 0; }
+.sku-metadata-row .sku-grasp-field, .sku-metadata-row .sku-prompt-field { grid-column: auto; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 6px; }
+.sku-grasp-field select { min-width: 0; height: 29px; border: 1px solid #cad7d9; border-radius: 3px; background: #fff; color: #30464b; }
+.sku-prompt-field small { grid-column: 2; }
+.sku-batch-page { min-height: 100vh; background: #f5f8f8; color: #2c444a; }
+.sku-batch-header { height: 62px; display: flex; align-items: center; gap: 14px; padding: 0 22px; background: #fff; border-bottom: 1px solid #d3dfe1; }
+.sku-batch-header > div { display: grid; gap: 2px; }.sku-batch-header strong { font-size: 16px; }.sku-batch-header small { color: #657d82; font-size: 11px; }
+.sku-batch-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 22px; border-bottom: 1px solid #d3dfe1; background: #fff; }.sku-batch-toolbar > span { margin-right: auto; font-size: 12px; color: #526a70; }.sku-prompt-group-hint { color: #657d82; font-size: 11px; }.sku-batch-toolbar > input { height: 30px; padding: 0 7px; border: 1px solid #cad7d9; border-radius: 3px; }.sku-batch-toolbar .sku-folder-input { min-width: 220px; }
+.sku-batch-table-wrap { margin: 18px 22px; overflow: auto; border: 1px solid #d3dfe1; }.sku-batch-table { width: 100%; min-width: 900px; border-collapse: collapse; background: #fff; }.sku-batch-table th, .sku-batch-table td { padding: 8px; text-align: left; border-top: 1px solid #e6edef; font-size: 12px; vertical-align: top; }.sku-batch-table th { border-top: 0; background: #edf3f3; color: #62777d; }.sku-batch-table label, .sku-batch-card label { display: grid; gap: 4px; color: #5c7277; font-size: 11px; }.sku-batch-table input, .sku-batch-table select, .sku-batch-table textarea, .sku-batch-card input, .sku-batch-card select, .sku-batch-card textarea { box-sizing: border-box; width: 100%; border: 1px solid #cad7d9; border-radius: 3px; padding: 5px; color: #30464b; background: #fff; font: inherit; }.sku-batch-table textarea { min-height: 50px; resize: vertical; }
+.sku-batch-image { width: 76px; min-height: 68px; display: grid !important; place-items: center; overflow: hidden; background: #eef3f3; color: #687f83; cursor: pointer; }.sku-batch-image img { width: 76px; height: 68px; object-fit: contain; }.sku-batch-image b { padding: 4px; color: #286d67; font-weight: 600; }.sku-batch-image input { display: none; }
+.sku-batch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; padding: 18px 22px; }.sku-batch-card { display: grid; gap: 8px; align-content: start; padding: 11px; border: 1px solid #d3dfe1; background: #fff; }.sku-batch-card .sku-batch-image { width: 100%; height: 180px; }.sku-batch-card .sku-batch-image img { width: 100%; height: 150px; }.sku-batch-card textarea { min-height: 66px; resize: vertical; }
 .review-table code { color: #26736d; font-size: 10px; }
 .review-table input, .review-table select { height: 27px; max-width: 130px; padding: 0 6px; border: 1px solid #cad7d9; border-radius: 3px; background: #fff; color: #30464b; font-size: 11px; }
 .dimension-input { display: flex; gap: 4px; }

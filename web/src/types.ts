@@ -50,6 +50,9 @@ export type Sku = {
   mesh_file: string
   tex_file: string
   owlv2_prompt: string
+  qwen_grounding_prompt: string
+  reference_image_path: string
+  grasp_method: '夹爪' | '吸盘'
 }
 
 export type SlotStatus = '正常' | '缺货' | '摆放错误'
@@ -122,7 +125,7 @@ export type SkuQueryReport = {
   run_id?: string
   query: string
   sku: string
-  reference_slot_id: string
+  reference_slot_id: string | null
   provider: string
   model: string
   request_seconds: number

@@ -180,6 +180,9 @@ CREATE TABLE delivery_tables (
 | `mesh_file` | TEXT | NOT NULL DEFAULT '' | OBJ 网格文件路径 |
 | `tex_file` | TEXT | NOT NULL DEFAULT '' | 纹理贴图路径 |
 | `owlv2_prompt` | TEXT | NOT NULL DEFAULT '' | 人工审核的英文商品视觉检索短语 |
+| `qwen_grounding_prompt` | TEXT | NOT NULL DEFAULT '' | Qwen 单图 grounding 专用的中文商品视觉描述；不用于 OWLv2 或 DINO |
+| `reference_image_path` | TEXT | NOT NULL DEFAULT '' | SKU 主图相对路径，固定为 `data/sku_images/<SKU>.png` |
+| `grasp_method` | TEXT | NOT NULL，`夹爪` 或 `吸盘` | 该 SKU 的抓取方式，默认 `夹爪` |
 
 ```sql
 CREATE TABLE sku_catalog (
@@ -187,7 +190,10 @@ CREATE TABLE sku_catalog (
     category    TEXT NOT NULL DEFAULT '',
     mesh_file   TEXT NOT NULL DEFAULT '',
     tex_file    TEXT NOT NULL DEFAULT '',
-    owlv2_prompt TEXT NOT NULL DEFAULT ''
+    owlv2_prompt TEXT NOT NULL DEFAULT '',
+    qwen_grounding_prompt TEXT NOT NULL DEFAULT '',
+    reference_image_path TEXT NOT NULL DEFAULT '',
+    grasp_method TEXT NOT NULL DEFAULT '夹爪' CHECK(grasp_method IN ('夹爪', '吸盘'))
 );
 ```
 
@@ -286,6 +292,7 @@ SQLite 是唯一可写业务真源。`data/shelf_calibration/{shelf_id}.json` �
 | `/api/sku-query/runs/{run_id}/artifact/{name}` | JSON、文本或图片 | 读取 debug SKU 查询产物 |
 | `/api/image-stitch/runs/{run_id}/artifact/{name}` | PNG | 读取图片拼接产物 |
 | `/api/rgbd-stockout/runs/{run_id}/artifact/{name}` | JSON 或 PNG | 读取 RGB-D 巡检 debug 产物 |
+| `/api/sku-images/{sku}` | PNG | 读取 SKU 主图 |
 
 #### POST
 
@@ -293,12 +300,16 @@ SQLite 是唯一可写业务真源。`data/shelf_calibration/{shelf_id}.json` �
 |------|------|------|
 | `/api/shelves` | `name`、`world_x`、`world_y`、`yaw`、`shelf_type_id` 可选 | `{"id": shelf_id, "state": State}` |
 | `/api/delivery-tables` | `name`、`world_x`、`world_y`、`yaw` | `{"id": table_id, "state": State}` |
-| `/api/skus` | `sku`，可选 `category`、`mesh_file`、`tex_file`、`owlv2_prompt` | `{"state": State}` |
+| `/api/skus` | `sku`，可选 `category`、`mesh_file`、`tex_file`、`owlv2_prompt`、`qwen_grounding_prompt`、`reference_image_data`、`grasp_method` | `{"state": State}` |
+| `/api/skus/batch` | `skus` 全量草稿数组（含 `original_sku`、可选 `reference_image_data`） | `{"state": State}`；保存新建、编辑与重命名 |
+| `/api/skus/import-image-directory` | `directory` 本机绝对路径 | `{"imported", "skipped", "state"}`；扫描目录第一层 `SKU名称.png`，同名 SKU 替换主图 |
+| `/api/skus/prompts/generate` | 2-8 个 SKU 的 `skus` 数组 | `{"drafts", "skipped"}`；每个完整 SKU 的主图和正常 ID 图会拼成一张带序号、名称的对比图，一次调用 Ark 生成整组草稿；缺图项在 `skipped` 返回，不写数据库 |
+| `/api/skus/delete` | `skus` 数组 | `{"deleted", "state"}`；引用统一替换为 `unknown` 后删除 |
 | `/api/slots` | `shelf_id`、`face`、`level`、`y_cm`、`expected_sku`；可选 `actual_sku`、尺寸、`bbox`、`image_dir` | `{"slot": Slot, "state": State}` |
 | `/api/slots/{slot_id}/take` | 空对象 `{}` | `{"slot": Slot, "state": State}`；实际 SKU 置空 |
 | `/api/slots/{slot_id}/restock` | 空对象 `{}` | `{"slot": Slot, "state": State}`；实际 SKU 恢复为预期 SKU |
-| `/api/imports/manual` | `items`、`new_skus`、`layers`、`shelf_image` | `{"slot_ids": [...], "state": State}` |
-| `/api/sku-prompts/owlv2` | `requests: [{sku, images: [data_url, ...]}]`，每项 1 至 3 张正常裁剪图 | `{"drafts": [{"sku": "...", "owlv2_prompt": "..."}]}`；只生成草稿，不写数据库 |
+| `/api/imports/manual` | `items`、`new_skus`、`sku_prompts`、`sku_metadata`、`layers`、`shelf_image` | `{"slot_ids": [...], "state": State}`；`sku_metadata` 含 `sku`、可选 `reference_image_data`、`grasp_method` |
+| `/api/sku-prompts/owlv2` | `requests: [{sku, slot_image, reference_image_data?}]` | `{"drafts": [{"sku": "...", "owlv2_prompt": "..."}]}`；服务端组合 SKU 主图（上传图或已存图）和一张正常 ID 图，只生成草稿 |
 | `/api/grounding/products` | `image_data` | `{"boxes": [...], "detected": number}` |
 | `/api/vision/inspect` | `image_data`、可选 `config`、`debug` | `{"report": InspectionReport}`，状态不写数据库 |
 | `/api/rgbd-stockout/runs` | `sample`、`debug` | `{"report": RgbdStockoutReport}`，状态不写数据库 |
@@ -313,7 +324,7 @@ SQLite 是唯一可写业务真源。`data/shelf_calibration/{shelf_id}.json` �
 |------|------|------|
 | `/api/vision/config` | 巡检阈值和 `vlm_fallback` 等配置 | `{"inspection": config}` |
 | `/api/sku-query/config` | `max_boxes`、`dino_fallback`、`dino_confidence_threshold`、`owlv2_score_threshold` | `{"sku_query": config}` |
-| `/api/skus/{sku}` | `category`、`mesh_file`、`tex_file`、`owlv2_prompt` | `{"state": State}` |
+| `/api/skus/{sku}` | `category`、`mesh_file`、`tex_file`、`owlv2_prompt`、`qwen_grounding_prompt`、可选 `reference_image_data`、`grasp_method` | `{"state": State}` |
 | `/api/shelf-types/{id}` | 10 个货架物理参数 | `{"state": State}` |
 | `/api/shelves/{id}` | 可选 `name`、`world_x`、`world_y`、`yaw`、`shelf_type_id` | `{"state": State}` |
 | `/api/delivery-tables/{id}` | 可选 `name`、`world_x`、`world_y`、`yaw` | `{"state": State}` |
@@ -357,13 +368,15 @@ sku_query:
   owlv2_score_threshold: 0.10
 ```
 
-`sku_catalog.owlv2_prompt` 是人工可编辑的英文自由文本商品对象描述，供 OWLv2 开放目标检测使用。人工批量导入页会对每个 SKU 从 `actual_sku == expected_sku` 的正常裁剪图中按面积选最多三张，请 Ark 只生成草稿；只有最终导入或 SKU 编辑保存才会写入数据库。提示词为空不会影响人工录入或云端 VLM 查询，但本地 `provider=local` 会明确拒绝该 SKU。以 SKU 查询时，参考图优先取 `expected_sku == actual_sku == query` 且已有裁剪图的正常 slot；无正常样本时才回退到其他有图的应摆 slot。
+`sku_catalog.owlv2_prompt` 是人工可编辑的英文自由文本商品对象描述，供 OWLv2 开放目标检测使用。人工批量导入页对每个 SKU 只提交一张面积最大的正常 ID 图；服务端优先与 SKU 主图组合生成草稿。提示词为空不会影响人工录入或云端 VLM 查询，但本地 `provider=local` 会明确拒绝该 SKU。所有 DINO SKU 相似度检索优先读取 `reference_image_path` 指向的 SKU 主图；没有主图时才回退到一张手机录入的 `data/item_images/<slot_id>/0.png`。SKU 查询使用相同优先级，主图命中时 `reference_slot_id` 为 `null`。
+
+`unknown` 是系统保留 SKU，自动创建且不可删除、不可改名。批量删除其他 SKU 前会提示其引用货位；确认后，所有命中的 `expected_sku` 和 `actual_sku` 会在同一数据库事务内替换为 `unknown`。SKU 重命名同样在事务中迁移两列引用，并将 SKU 主图改名为新的 `data/sku_images/<SKU>.png`。
 
 未开启 Ark 保底时，DINO 低于置信度阈值会返回 `actual_sku=null`；开启后交给 Ark 判断，Ark 无法判断时同样按缺货处理。巡检结果只有在调用 `/api/vision/runs/{run_id}/apply` 后才会更新数据库；`debug=false` 没有运行记录，不能调用 `apply`。
 
 ### RGB-D 比赛巡检（测试）
 
-`GET /api/rgbd-stockout/samples` 列出项目内 `test_pic/rgbd_stockout/` 下完整的受控样本目录。`POST /api/rgbd-stockout/runs` 只接收该目录名和 `debug`，服务端读取同步 RGB、16UC1 深度和相机内参。深度算法输出后退商品框；DINO 使用人工手机录入保存的 SKU 裁剪图排序，低置信度时本地 Qwen3.5-4B 只在无分数 Top-3 候选中复核。结果中的 `sku: null` 表示未知，运行不会修改数据库。
+`GET /api/rgbd-stockout/samples` 列出项目内 `test_pic/rgbd_stockout/` 下完整的受控样本目录。`POST /api/rgbd-stockout/runs` 只接收该目录名和 `debug`，服务端读取同步 RGB、16UC1 深度和相机内参。深度算法输出后退商品框；DINO 优先使用 SKU 主图、主图缺失时回退手机录入裁剪图排序，低置信度时本地 Qwen3.5-4B 只在无分数 Top-3 候选中复核。结果中的 `sku: null` 表示未知，运行不会修改数据库。
 
 ### RGB 异常摆放比赛巡检
 
@@ -435,8 +448,8 @@ data/shelf_images/{shelf_id}/+x_0.png
 
 | API | 签名 | 返回值 | 说明 |
 |-----|------|--------|------|
-| `register_sku` | `(sku, category="", mesh_file="", tex_file="", owlv2_prompt=None)` | `None` | 注册/更新一个 SKU；使用安全 UPSERT，不影响已关联库存 |
-| `update_sku` | `(sku, category, mesh_file, tex_file, owlv2_prompt)` | `SkuInfo` | 更新已有 SKU 的目录信息与本地检索提示词 |
+| `register_sku` | `(sku, category="", mesh_file="", tex_file="", owlv2_prompt=None, reference_image_path=None, grasp_method=None, qwen_grounding_prompt=None)` | `None` | 注册/更新一个 SKU；使用安全 UPSERT，不影响已关联库存 |
+| `update_sku` | `(sku, category, mesh_file, tex_file, owlv2_prompt, reference_image_path=None, grasp_method=None, qwen_grounding_prompt=None)` | `SkuInfo` | 更新已有 SKU 的目录信息、主图、抓取方式和 Qwen 专用提示词 |
 | `register_skus_batch` | `(skus: List[Dict])` | `None` | 批量注册 SKU；不替换已有目录行 |
 | `get_sku_info` | `(sku)` | `Optional[SkuInfo]` | 获取 SKU 信息 |
 | `get_all_skus` | `()` | `List[SkuInfo]` | 获取所有 SKU |
@@ -457,7 +470,7 @@ data/shelf_images/{shelf_id}/+x_0.png
 | `take_slot` | `(slot_id)` | 将 `actual_sku` 置空，固定位置不删除 |
 | `restock_slot` | `(slot_id)` | 将 `actual_sku` 恢复为 `expected_sku` |
 | `delete_slot` | `(slot_id)` | 删除固定位置 |
-| `import_slots_batch` | `(new_skus, slots)` | 原子创建新 SKU 和多条固定货位；冲突时全部回滚 |
+| `import_slots_batch` | `(new_skus, slots, sku_prompts=None, sku_metadata=None)` | 原子创建新 SKU、SKU 元数据和多条固定货位；冲突时全部回滚 |
 | `clear_shelf_face_level` | `(shelf_id, face, level)` | 清空指定局部 X 侧与层号的库存，返回删除数量 |
 | `clear_shelf_face` | `(shelf_id, face)` | 清空指定局部 X 侧全部库存，返回删除数量 |
 | `clear_shelf` | `(shelf_id)` | 清空货架组所有库存，返回删除数量；不删除 SKU 目录 |
@@ -532,7 +545,7 @@ data/shelf_images/{shelf_id}/+x_0.png
 |------|------|------|
 | `ShelfType` | `id, name, shelf_length, shelf_width, shelf_height, num_levels, bottom_clearance, level_spacing, panel_thick, back_thick, shelf_depth_normal, shelf_depth_bottom` | 货架类型标识及 10 个物理参数 |
 | `ShelfGroup` | `id, name, world_x, world_y, yaw, shelf_type_id, created_at` | 货架组信息 |
-| `SkuInfo` | `sku, category, mesh_file, tex_file, owlv2_prompt` | SKU 信息 |
+| `SkuInfo` | `sku, category, mesh_file, tex_file, owlv2_prompt, qwen_grounding_prompt, reference_image_path, grasp_method` | SKU 信息 |
 | `ShelfSlot` | `slot_id, shelf_id, face, level, y_cm, expected_sku, actual_sku, width_cm, height_cm, image_dir, status` | 固定位置、当前内容和派生状态 |
 | `LocalPos` | `x, y, z` | 货架局部坐标 |
 | `WorldPos` | `x, y, z` | 世界坐标 |

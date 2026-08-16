@@ -22,6 +22,9 @@ data/
 vision/output/
 vision/models/
 
+# Offline grounding benchmark assets and runs
+qwen_grounding_benchmark/
+
 # Editor and operating-system files
 .DS_Store
 .idea/

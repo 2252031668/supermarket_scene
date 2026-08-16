@@ -4,6 +4,8 @@ from unittest.mock import Mock, patch
 from pathlib import Path
 
 import numpy as np
+from PIL import Image
+from shelf_database import ShelfDatabase
 
 
 class RgbdDetectorTests(unittest.TestCase):
@@ -36,6 +38,28 @@ class RgbdDetectorTests(unittest.TestCase):
 
 
 class RgbdDecisionTests(unittest.TestCase):
+    def test_sku_references_prefer_sku_image_then_slot_crop(self):
+        from vision.rgbd_stockout_sku import sku_references
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            item_images = root / "data" / "item_images"
+            sku_image = root / "data" / "sku_images" / "cola.png"
+            sku_image.parent.mkdir(parents=True)
+            Image.new("RGB", (2, 2), "red").save(sku_image)
+            with ShelfDatabase(root / "inventory.db") as db:
+                db.register_sku("cola", reference_image_path="data/sku_images/cola.png")
+                db.register_sku("tea")
+                shelf_id = db.add_shelf_group("test")
+                slot_id = db.create_slot(shelf_id, 0, 0, 10, "tea", "tea")
+            fallback = item_images / slot_id / "0.png"
+            fallback.parent.mkdir(parents=True)
+            Image.new("RGB", (2, 2), "green").save(fallback)
+
+            references = sku_references(root / "inventory.db", item_images)
+            self.assertEqual(references["cola"], sku_image)
+            self.assertEqual(references["tea"], fallback)
+
     def test_dino_is_decisive_only_for_high_clear_winner(self):
         from vision.rgbd_stockout_sku import dino_is_decisive
 

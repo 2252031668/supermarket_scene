@@ -56,6 +56,7 @@ PANEL_THICK = DEFAULT_PANEL_THICK
 BACK_THICK = DEFAULT_BACK_THICK
 SHELF_DEPTH_NORMAL = DEFAULT_SHELF_DEPTH_NORMAL
 SHELF_DEPTH_BOTTOM = DEFAULT_SHELF_DEPTH_BOTTOM
+UNKNOWN_SKU = "unknown"
 
 
 # ============================================================
@@ -110,6 +111,9 @@ class SkuInfo:
     mesh_file: str = ""
     tex_file: str = ""
     owlv2_prompt: str = ""
+    qwen_grounding_prompt: str = ""
+    reference_image_path: str = ""
+    grasp_method: str = "夹爪"
 
 
 @dataclass
@@ -230,7 +234,10 @@ class ShelfDatabase:
                 category    TEXT NOT NULL DEFAULT '',
                 mesh_file   TEXT NOT NULL DEFAULT '',
                 tex_file    TEXT NOT NULL DEFAULT '',
-                owlv2_prompt TEXT NOT NULL DEFAULT ''
+                owlv2_prompt TEXT NOT NULL DEFAULT '',
+                qwen_grounding_prompt TEXT NOT NULL DEFAULT '',
+                reference_image_path TEXT NOT NULL DEFAULT '',
+                grasp_method TEXT NOT NULL DEFAULT '夹爪' CHECK(grasp_method IN ('夹爪', '吸盘'))
             )
         """)
 
@@ -246,6 +253,18 @@ class ShelfDatabase:
         if "owlv2_prompt" not in columns:
             self.conn.execute(
                 "ALTER TABLE sku_catalog ADD COLUMN owlv2_prompt TEXT NOT NULL DEFAULT ''"
+            )
+        if "qwen_grounding_prompt" not in columns:
+            self.conn.execute(
+                "ALTER TABLE sku_catalog ADD COLUMN qwen_grounding_prompt TEXT NOT NULL DEFAULT ''"
+            )
+        if "reference_image_path" not in columns:
+            self.conn.execute(
+                "ALTER TABLE sku_catalog ADD COLUMN reference_image_path TEXT NOT NULL DEFAULT ''"
+            )
+        if "grasp_method" not in columns:
+            self.conn.execute(
+                "ALTER TABLE sku_catalog ADD COLUMN grasp_method TEXT NOT NULL DEFAULT '夹爪'"
             )
 
     def _create_inventory_table(self):
@@ -678,25 +697,42 @@ class ShelfDatabase:
             raise ValueError("owlv2_prompt must be at most 240 characters")
         return prompt
 
+    @staticmethod
+    def _qwen_grounding_prompt(value: str) -> str:
+        prompt = str(value).strip()
+        if len(prompt) > 400:
+            raise ValueError("qwen_grounding_prompt must be at most 400 characters")
+        return prompt
+
+    @staticmethod
+    def _grasp_method(value: str) -> str:
+        method = str(value).strip()
+        if method not in {"夹爪", "吸盘"}:
+            raise ValueError("grasp_method must be 夹爪 or 吸盘")
+        return method
+
     def register_sku(self, sku: str, category: str = "",
-                     mesh_file: str = "", tex_file: str = "", owlv2_prompt: Optional[str] = None):
+                     mesh_file: str = "", tex_file: str = "", owlv2_prompt: Optional[str] = None,
+                     reference_image_path: Optional[str] = None, grasp_method: Optional[str] = None,
+                     qwen_grounding_prompt: Optional[str] = None):
         """注册或更新一个商品 SKU，不替换行以避免触发库存级联删除。"""
-        if owlv2_prompt is None:
+        existing = self.get_sku_info(sku)
+        if existing is None:
             self.conn.execute(
-                "INSERT INTO sku_catalog (sku, category, mesh_file, tex_file) "
-                "VALUES (?, ?, ?, ?) "
-                "ON CONFLICT(sku) DO UPDATE SET "
-                "category = excluded.category, mesh_file = excluded.mesh_file, tex_file = excluded.tex_file",
-                (sku, category, mesh_file, tex_file),
+                "INSERT INTO sku_catalog (sku, category, mesh_file, tex_file, owlv2_prompt, qwen_grounding_prompt, reference_image_path, grasp_method) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (sku, category, mesh_file, tex_file, self._owlv2_prompt(owlv2_prompt or ""),
+                 self._qwen_grounding_prompt(qwen_grounding_prompt or ""),
+                 str(reference_image_path or ""), self._grasp_method(grasp_method or "夹爪")),
             )
         else:
             self.conn.execute(
-                "INSERT INTO sku_catalog (sku, category, mesh_file, tex_file, owlv2_prompt) "
-                "VALUES (?, ?, ?, ?, ?) "
-                "ON CONFLICT(sku) DO UPDATE SET "
-                "category = excluded.category, mesh_file = excluded.mesh_file, tex_file = excluded.tex_file, "
-                "owlv2_prompt = excluded.owlv2_prompt",
-                (sku, category, mesh_file, tex_file, self._owlv2_prompt(owlv2_prompt)),
+                "UPDATE sku_catalog SET category=?, mesh_file=?, tex_file=?, owlv2_prompt=?, qwen_grounding_prompt=?, reference_image_path=?, grasp_method=? WHERE sku=?",
+                (category, mesh_file, tex_file,
+                 existing.owlv2_prompt if owlv2_prompt is None else self._owlv2_prompt(owlv2_prompt),
+                 existing.qwen_grounding_prompt if qwen_grounding_prompt is None else self._qwen_grounding_prompt(qwen_grounding_prompt),
+                 existing.reference_image_path if reference_image_path is None else str(reference_image_path),
+                 existing.grasp_method if grasp_method is None else self._grasp_method(grasp_method), sku),
             )
         self.conn.commit()
 
@@ -706,12 +742,15 @@ class ShelfDatabase:
             self.register_sku(
                 sku["sku"], sku.get("category", ""), sku.get("mesh_file", ""),
                 sku.get("tex_file", ""), sku.get("owlv2_prompt") if "owlv2_prompt" in sku else None,
+                sku.get("reference_image_path") if "reference_image_path" in sku else None,
+                sku.get("grasp_method") if "grasp_method" in sku else None,
+                sku.get("qwen_grounding_prompt") if "qwen_grounding_prompt" in sku else None,
             )
 
     def get_sku_info(self, sku: str) -> Optional[SkuInfo]:
         """获取SKU信息"""
         row = self.conn.execute(
-            "SELECT sku, category, mesh_file, tex_file, owlv2_prompt FROM sku_catalog WHERE sku = ?",
+            "SELECT sku, category, mesh_file, tex_file, owlv2_prompt, qwen_grounding_prompt, reference_image_path, grasp_method FROM sku_catalog WHERE sku = ?",
             (sku,)
         ).fetchone()
         if row is None:
@@ -721,23 +760,30 @@ class ShelfDatabase:
     def get_all_skus(self) -> List[SkuInfo]:
         """获取所有SKU"""
         rows = self.conn.execute(
-            "SELECT sku, category, mesh_file, tex_file, owlv2_prompt FROM sku_catalog ORDER BY sku"
+            "SELECT sku, category, mesh_file, tex_file, owlv2_prompt, qwen_grounding_prompt, reference_image_path, grasp_method FROM sku_catalog ORDER BY sku"
         ).fetchall()
         return [SkuInfo(**dict(r)) for r in rows]
 
     def update_sku(self, sku: str, category: str, mesh_file: str, tex_file: str,
-                   owlv2_prompt: str) -> SkuInfo:
-        if self.get_sku_info(sku) is None:
+                   owlv2_prompt: str, reference_image_path: Optional[str] = None,
+                   grasp_method: Optional[str] = None, qwen_grounding_prompt: Optional[str] = None) -> SkuInfo:
+        current = self.get_sku_info(sku)
+        if current is None:
             raise ValueError(f"SKU {sku} does not exist")
         self.conn.execute(
-            "UPDATE sku_catalog SET category=?, mesh_file=?, tex_file=?, owlv2_prompt=? WHERE sku=?",
-            (category, mesh_file, tex_file, self._owlv2_prompt(owlv2_prompt), sku),
+            "UPDATE sku_catalog SET category=?, mesh_file=?, tex_file=?, owlv2_prompt=?, qwen_grounding_prompt=?, reference_image_path=?, grasp_method=? WHERE sku=?",
+            (category, mesh_file, tex_file, self._owlv2_prompt(owlv2_prompt),
+             current.qwen_grounding_prompt if qwen_grounding_prompt is None else self._qwen_grounding_prompt(qwen_grounding_prompt),
+             current.reference_image_path if reference_image_path is None else str(reference_image_path),
+             current.grasp_method if grasp_method is None else self._grasp_method(grasp_method), sku),
         )
         self.conn.commit()
         return self.get_sku_info(sku)
 
     def remove_sku_from_catalog(self, sku: str):
         """删除未被固定货位引用的 SKU。"""
+        if sku == UNKNOWN_SKU:
+            raise ValueError("unknown cannot be deleted")
         referenced = self.conn.execute(
             "SELECT COUNT(*) FROM shelf_inventory "
             "WHERE expected_sku = ? OR actual_sku = ?",
@@ -747,6 +793,68 @@ class ShelfDatabase:
             raise ValueError("SKU is referenced by shelf slots")
         self.conn.execute("DELETE FROM sku_catalog WHERE sku = ?", (sku,))
         self.conn.commit()
+
+    def ensure_unknown_sku(self):
+        self.conn.execute(
+            "INSERT INTO sku_catalog (sku, category, mesh_file, tex_file, owlv2_prompt, qwen_grounding_prompt, reference_image_path, grasp_method) "
+            "VALUES (?, '', '', '', '', '', '', '夹爪') ON CONFLICT(sku) DO NOTHING",
+            (UNKNOWN_SKU,),
+        )
+
+    def rename_sku(self, old_sku: str, new_sku: str,
+                   reference_image_path: Optional[str] = None) -> SkuInfo:
+        old_sku, new_sku = str(old_sku).strip(), str(new_sku).strip()
+        if not old_sku or not new_sku:
+            raise ValueError("SKU name cannot be empty")
+        if old_sku == UNKNOWN_SKU or new_sku == UNKNOWN_SKU:
+            raise ValueError("unknown is reserved")
+        with self.conn:
+            current = self.get_sku_info(old_sku)
+            if current is None:
+                raise ValueError(f"SKU {old_sku} does not exist")
+            if self.get_sku_info(new_sku) is not None:
+                raise ValueError(f"SKU {new_sku} already exists")
+            self.conn.execute(
+                "INSERT INTO sku_catalog (sku, category, mesh_file, tex_file, owlv2_prompt, qwen_grounding_prompt, reference_image_path, grasp_method) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (new_sku, current.category, current.mesh_file, current.tex_file,
+                 current.owlv2_prompt,
+                 current.qwen_grounding_prompt,
+                 current.reference_image_path if reference_image_path is None else reference_image_path,
+                 current.grasp_method),
+            )
+            self.conn.execute("UPDATE shelf_inventory SET expected_sku=? WHERE expected_sku=?", (new_sku, old_sku))
+            self.conn.execute("UPDATE shelf_inventory SET actual_sku=? WHERE actual_sku=?", (new_sku, old_sku))
+            self.conn.execute("DELETE FROM sku_catalog WHERE sku=?", (old_sku,))
+        return self.get_sku_info(new_sku)
+
+    def delete_skus_to_unknown(self, skus: List[str]) -> List[str]:
+        requested = list(dict.fromkeys(str(sku).strip() for sku in skus))
+        if not requested or any(not sku for sku in requested):
+            raise ValueError("At least one SKU is required")
+        if UNKNOWN_SKU in requested:
+            raise ValueError("unknown cannot be deleted")
+        placeholders = ", ".join("?" for _ in requested)
+        with self.conn:
+            existing = {
+                row[0] for row in self.conn.execute(
+                    f"SELECT sku FROM sku_catalog WHERE sku IN ({placeholders})", requested
+                )
+            }
+            missing = [sku for sku in requested if sku not in existing]
+            if missing:
+                raise ValueError(f"SKU does not exist: {missing[0]}")
+            self.ensure_unknown_sku()
+            self.conn.execute(
+                f"UPDATE shelf_inventory SET expected_sku=? WHERE expected_sku IN ({placeholders})",
+                (UNKNOWN_SKU, *requested),
+            )
+            self.conn.execute(
+                f"UPDATE shelf_inventory SET actual_sku=? WHERE actual_sku IN ({placeholders})",
+                (UNKNOWN_SKU, *requested),
+            )
+            self.conn.execute(f"DELETE FROM sku_catalog WHERE sku IN ({placeholders})", requested)
+        return requested
 
     # ================================================================
     # 固定货位管理
@@ -867,7 +975,8 @@ class ShelfDatabase:
         return self.set_actual_sku(slot_id, slot.expected_sku)
 
     def import_slots_batch(self, new_skus: List[Dict[str, str]], slots: List[Dict[str, Any]],
-                           sku_prompts: Optional[List[Dict[str, str]]] = None) -> List[str]:
+                           sku_prompts: Optional[List[Dict[str, str]]] = None,
+                           sku_metadata: Optional[List[Dict[str, str]]] = None) -> List[str]:
         """Atomically create SKUs and fixed shelf slots."""
         if not slots:
             raise ValueError("At least one shelf slot is required")
@@ -884,6 +993,17 @@ class ShelfDatabase:
             prompt = self._owlv2_prompt(item.get("owlv2_prompt", ""))
             if prompt:
                 prompt_by_sku[sku_name] = prompt
+        metadata_by_sku: Dict[str, Dict[str, str]] = {}
+        for item in sku_metadata or []:
+            if not isinstance(item, dict):
+                raise ValueError("sku_metadata must contain objects")
+            sku_name = str(item.get("sku", "")).strip()
+            if not sku_name or sku_name in metadata_by_sku:
+                raise ValueError("sku_metadata contains an invalid or duplicate SKU")
+            metadata_by_sku[sku_name] = {
+                "reference_image_path": str(item.get("reference_image_path", "")),
+                "grasp_method": self._grasp_method(item.get("grasp_method", "夹爪")),
+            }
         with self.conn:
             for sku in new_skus:
                 sku_name = str(sku["sku"]).strip()
@@ -898,6 +1018,15 @@ class ShelfDatabase:
                 if self.get_sku_info(sku_name) is None:
                     raise ValueError(f"SKU {sku_name} does not exist")
                 self.conn.execute("UPDATE sku_catalog SET owlv2_prompt=? WHERE sku=?", (prompt, sku_name))
+            for sku_name, metadata in metadata_by_sku.items():
+                current = self.get_sku_info(sku_name)
+                if current is None:
+                    raise ValueError(f"SKU {sku_name} does not exist")
+                self.conn.execute(
+                    "UPDATE sku_catalog SET reference_image_path=?, grasp_method=? WHERE sku=?",
+                    (metadata["reference_image_path"] or current.reference_image_path,
+                     metadata["grasp_method"], sku_name),
+                )
             for slot, key in zip(slots, keys):
                 shelf_id, face, level, y_cm = key
                 expected_sku = str(slot["expected_sku"]).strip()

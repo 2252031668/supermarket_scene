@@ -58,11 +58,17 @@ def candidate_board(top: list[tuple[str, float]], references: dict[str, Path]) -
 
 
 def sku_references(db_path: str | Path, item_images_dir: str | Path) -> dict[str, Path]:
-    """Use the first saved phone-entry crop for each SKU as its DINO reference."""
+    """Use the SKU-owned reference image, falling back to one phone-entry crop."""
     root = Path(item_images_dir)
     with ShelfDatabase(db_path) as db:
+        skus = db.get_all_skus()
         slots = sorted(db.get_all_slots(), key=lambda slot: slot.slot_id)
     references: dict[str, Path] = {}
+    sku_image_root = root.parent / "sku_images"
+    for info in skus:
+        path = sku_image_root / f"{info.sku}.png"
+        if info.reference_image_path and path.is_file():
+            references[info.sku] = path
     for slot in slots:
         path = root / slot.slot_id / "0.png"
         if slot.expected_sku not in references and path.is_file():

@@ -6,6 +6,7 @@ import { VisionInspectionPage } from './VisionInspectionPage'
 import { RgbdStockoutPage } from './RgbdStockoutPage'
 import { SkuQueryPage } from './SkuQueryPage'
 import { ImageStitchPage } from './ImageStitchPage'
+import { SkuBatchManagerPage } from './SkuBatchManagerPage'
 import { skuColor } from './skuColors'
 import type { DeliveryTable, Selection, Shelf, Slot, WarehouseState } from './types'
 
@@ -15,7 +16,7 @@ const blankState: WarehouseState = {
 }
 
 type SlotDraft = Pick<Slot, 'slot_id' | 'shelf_id' | 'face' | 'level' | 'y_cm' | 'expected_sku' | 'actual_sku' | 'width_cm' | 'height_cm' | 'image_dir'>
-type SkuDraft = Pick<WarehouseState['skus'][number], 'sku' | 'category' | 'mesh_file' | 'tex_file' | 'owlv2_prompt'>
+type SkuDraft = Pick<WarehouseState['skus'][number], 'sku' | 'category' | 'mesh_file' | 'tex_file' | 'owlv2_prompt' | 'qwen_grounding_prompt' | 'reference_image_path' | 'grasp_method'> & { reference_image_data?: string }
 type CleanupScope = 'level' | 'face' | 'all' | 'shelf'
 type SlotWorldPosition = Slot & { frame: string }
 
@@ -58,6 +59,7 @@ export function App() {
   const [skuQuery, setSkuQuery] = useState(false)
   const [imageStitch, setImageStitch] = useState(false)
   const [manualImportImage, setManualImportImage] = useState<string | null>(null)
+  const [skuBatchManagement, setSkuBatchManagement] = useState(false)
 
   const selectedShelf = useMemo(() => {
     if (selection.kind === 'shelf') return state.shelves.find((shelf) => shelf.id === selection.shelfId)
@@ -197,7 +199,7 @@ export function App() {
   }
 
   const beginNewSku = () => {
-    setSkuDraft({ sku: '', category: '', mesh_file: '', tex_file: '', owlv2_prompt: '' })
+    setSkuDraft({ sku: '', category: '', mesh_file: '', tex_file: '', owlv2_prompt: '', qwen_grounding_prompt: '', reference_image_path: '', grasp_method: '夹爪' })
   }
 
   const beginEditSku = (sku: string) => {
@@ -284,6 +286,7 @@ export function App() {
   if (rgbdStockout) return <RgbdStockoutPage onBack={() => setRgbdStockout(false)} />
   if (skuQuery) return <SkuQueryPage state={state} onBack={() => setSkuQuery(false)} />
   if (imageStitch) return <ImageStitchPage onBack={() => setImageStitch(false)} onUseForImport={(url) => { setManualImportImage(url); setImageStitch(false); setManualImport(true) }} />
+  if (skuBatchManagement) return <SkuBatchManagerPage state={state} onBack={() => setSkuBatchManagement(false)} onSaved={setState} />
 
   return (
     <main className="app-shell">
@@ -296,6 +299,7 @@ export function App() {
           </div>
           <button className="refresh-button" title="重新读取数据库" onClick={() => void refresh(true)}><RefreshCw size={16} className={loading ? 'spin' : ''} /><span>刷新数据</span></button>
           <button className="manual-entry-button" title="通过照片人工批量录入商品" onClick={() => setManualImport(true)}><Upload size={16} /><span>人工批量录入</span></button>
+          <button className="manual-entry-button" title="维护全部 SKU、主图和 OWLv2 提示词" onClick={() => setSkuBatchManagement(true)}><Box size={16} /><span>SKU 批量管理</span></button>
           <button className="manual-entry-button" title="上传局部照片并识别异常货位" onClick={() => setVisionInspection(true)}><ScanLine size={16} /><span>巡检识别</span></button>
           <button className="manual-entry-button" title="测试样本中的 RGB-D 后排缺货识别" onClick={() => setRgbdStockout(true)}><Trophy size={16} /><span>比赛巡检</span></button>
           <button className="manual-entry-button" title="用 SKU 或固定位置 ID 在局部照片中查询商品" onClick={() => setSkuQuery(true)}><Search size={16} /><span>货物查询</span></button>
@@ -325,7 +329,7 @@ export function App() {
           ) : shelfTypeDraft ? (
             <ShelfTypeEditor draft={shelfTypeDraft} assignedShelfCount={state.shelves.filter((shelf) => shelf.shelf_type_id === shelfTypeDraft.id).length} onChange={setShelfTypeDraft} onSave={() => void saveShelfType()} onClose={() => setShelfTypeDraft(null)} />
           ) : selection.kind === 'slot' && slotDraft ? (
-            <SlotEditor draft={slotDraft} skus={state.skus} worldPosition={slotWorldPosition} onChange={setSlotDraft} onSave={() => void saveSlot()} onTake={() => void runSlotAction('take')} onRestock={() => void runSlotAction('restock')} onDelete={() => void deleteSlot()} onClose={() => setSelection({ kind: 'shelf', shelfId: slotDraft.shelf_id })} />
+            <SlotEditor draft={slotDraft} skus={state.skus} worldPosition={slotWorldPosition} onChange={setSlotDraft} onSave={() => void saveSlot()} onTake={() => void runSlotAction('take')} onRestock={() => void runSlotAction('restock')} onDelete={() => void deleteSlot()} onEditSku={(sku) => beginEditSku(sku)} onClose={() => setSelection({ kind: 'shelf', shelfId: slotDraft.shelf_id })} />
           ) : selection.kind === 'shelf' && shelfDraft ? (
             <ShelfEditor draft={shelfDraft} types={state.shelf_types} shelfImages={state.shelf_images} itemCount={state.slots.filter((slot) => slot.shelf_id === shelfDraft.id).length} onChange={setShelfDraft} onSave={() => void saveShelf()} onEditType={(typeId) => setShelfTypeDraft(state.shelf_types.find((type) => type.id === typeId) ?? null)} onCleanup={() => setCleanupShelfId(shelfDraft.id)} onAddSlot={beginNewSlot} />
           ) : selection.kind === 'delivery-table' && deliveryTableDraft ? (
@@ -434,9 +438,17 @@ function DeliveryTableEditor({ draft, onChange, onSave, onDelete, onClose }: { d
 
 function SkuEditor({ draft, existing, onChange, onSave, onClose }: { draft: SkuDraft; existing: boolean; onChange: (value: SkuDraft) => void; onSave: () => void; onClose: () => void }) {
   const set = <K extends keyof SkuDraft>(key: K, value: SkuDraft[K]) => onChange({ ...draft, [key]: value })
+  const uploadReference = (file?: File) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => set('reference_image_data', String(reader.result))
+    reader.readAsDataURL(file)
+  }
+  const imageUrl = draft.reference_image_data || (draft.reference_image_path ? `/api/sku-images/${encodeURIComponent(draft.sku)}` : '')
   return <>
     <PanelHeader icon={<Box size={19} />} title={existing ? '编辑 SKU' : '新增 SKU'} eyebrow="SKU CATALOG" action={<button className="icon-button" title="返回总览" onClick={onClose}><X size={17} /></button>} />
-    <div className="field-grid"><Field label="SKU 名称" value={draft.sku} onChange={(value) => set('sku', value)} readOnly={existing} wide /><Field label="分类（可选）" value={draft.category} onChange={(value) => set('category', value)} /><Field label="网格文件（可选）" value={draft.mesh_file} onChange={(value) => set('mesh_file', value)} wide /><Field label="纹理文件（可选）" value={draft.tex_file} onChange={(value) => set('tex_file', value)} wide /><Field label="OWLv2 英文提示词" value={draft.owlv2_prompt} onChange={(value) => set('owlv2_prompt', value)} wide /></div>
+    <div className="field-grid"><Field label="SKU 名称" value={draft.sku} onChange={(value) => set('sku', value)} readOnly={existing} wide /><Field label="分类（可选）" value={draft.category} onChange={(value) => set('category', value)} /><label className="field"><span>抓取方式</span><select value={draft.grasp_method} onChange={(event) => set('grasp_method', event.target.value as SkuDraft['grasp_method'])}><option value="夹爪">夹爪</option><option value="吸盘">吸盘</option></select></label><Field label="网格文件（可选）" value={draft.mesh_file} onChange={(value) => set('mesh_file', value)} wide /><Field label="纹理文件（可选）" value={draft.tex_file} onChange={(value) => set('tex_file', value)} wide /><Field label="OWLv2 英文提示词" value={draft.owlv2_prompt} onChange={(value) => set('owlv2_prompt', value)} wide /><Field label="Qwen 专用提示词" value={draft.qwen_grounding_prompt} onChange={(value) => set('qwen_grounding_prompt', value)} wide /></div>
+    <div className="sku-reference-editor"><div className="sku-reference-preview">{imageUrl ? <img src={imageUrl} alt={`${draft.sku} SKU 主图`} /> : <span>暂无 SKU 主图</span>}</div><label className="upload-button"><Upload size={15} />{imageUrl ? '更换 SKU 主图' : '上传 SKU 主图'}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => uploadReference(event.target.files?.[0])} /></label></div>
     <div className="panel-actions"><button className="primary-button" onClick={onSave}><Save size={16} />{existing ? '保存 SKU' : '创建 SKU'}</button></div>
   </>
 }
@@ -469,7 +481,7 @@ function CleanupEditor({ shelf, shelfType, slots, onConfirm, onClose }: { shelf:
   </>
 }
 
-function SlotEditor({ draft, skus, worldPosition, onChange, onSave, onTake, onRestock, onDelete, onClose, isNew = false }: { draft: SlotDraft; skus: WarehouseState['skus']; worldPosition?: SlotWorldPosition | null; onChange: (value: SlotDraft) => void; onSave: () => void; onTake: () => void; onRestock: () => void; onDelete: () => void; onClose: () => void; isNew?: boolean }) {
+function SlotEditor({ draft, skus, worldPosition, onChange, onSave, onTake, onRestock, onDelete, onEditSku, onClose, isNew = false }: { draft: SlotDraft; skus: WarehouseState['skus']; worldPosition?: SlotWorldPosition | null; onChange: (value: SlotDraft) => void; onSave: () => void; onTake: () => void; onRestock: () => void; onDelete: () => void; onEditSku?: (sku: string) => void; onClose: () => void; isNew?: boolean }) {
   const set = <K extends keyof SlotDraft>(key: K, value: SlotDraft[K]) => onChange({ ...draft, [key]: value })
   const status = statusOf(draft)
   return <>
@@ -483,7 +495,7 @@ function SlotEditor({ draft, skus, worldPosition, onChange, onSave, onTake, onRe
     </div>
     <p className="helper-text">商品世界坐标指向几何中心；中心高度由本层层板表面加上商品高度的一半计算。</p>
     {!isNew && <div className="world-position"><span>世界坐标（{worldPosition?.frame ?? 'map'}，m）</span>{worldPosition ? <div><strong>X {worldPosition.world_x.toFixed(3)}</strong><strong>Y {worldPosition.world_y.toFixed(3)}</strong><strong>Z {worldPosition.world_z.toFixed(3)}</strong></div> : <small>正在读取坐标</small>}</div>}
-    <div className="panel-actions"><button className="primary-button" onClick={onSave}><Save size={16} />{isNew ? '创建货位' : '保存状态'}</button>{!isNew && <><button className="icon-button" title="拿走实际商品并标记缺货" onClick={onTake}><PackageMinus size={17} /></button><button className="icon-button" title="按应摆 SKU 补货" onClick={onRestock}><PackageCheck size={17} /></button><button className="danger-icon" title="删除固定货位" onClick={onDelete}><Trash2 size={17} /></button></>}</div>
+    <div className="panel-actions"><button className="primary-button" onClick={onSave}><Save size={16} />{isNew ? '创建货位' : '保存状态'}</button>{!isNew && <><button className="secondary-button" onClick={() => onEditSku?.(draft.expected_sku)}><Pencil size={15} />编辑应摆 SKU</button><button className="icon-button" title="拿走实际商品并标记缺货" onClick={onTake}><PackageMinus size={17} /></button><button className="icon-button" title="按应摆 SKU 补货" onClick={onRestock}><PackageCheck size={17} /></button><button className="danger-icon" title="删除固定货位" onClick={onDelete}><Trash2 size={17} /></button></>}</div>
   </>
 }
 

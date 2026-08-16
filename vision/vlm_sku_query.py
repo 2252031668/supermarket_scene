@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from volcenginesdkarkruntime import Ark
 
 from vision.ark_grounding import (
@@ -153,6 +153,83 @@ def request_ark(content: list[dict[str, Any]], model: str, max_tokens: int) -> P
     return ProviderResponse("ark", model, response_content, getattr(response, "id", None), usage, time.perf_counter() - started)
 
 
+def validate_owlv2_prompt(value: str) -> str:
+    prompt = value.strip().strip("`\"'")
+    if not prompt or "\n" in prompt or len(prompt) > 120 or prompt.lower().startswith("a photo of "):
+        raise RuntimeError("Ark did not return one concise OWLv2 object description")
+    return prompt
+
+
+def build_grouped_sku_prompt_board(items: list[tuple[str, bytes, bytes]]) -> bytes:
+    """Build a labelled primary-image/normal-slot-image comparison board."""
+    cell_width, title_height, image_width, image_height, gap = 640, 52, 296, 320, 16
+    columns = 2
+    rows = (len(items) + columns - 1) // columns
+    cell_height = title_height + image_height + 2 * gap
+    board = Image.new("RGB", (gap + columns * (cell_width + gap), gap + rows * (cell_height + gap)), "#f4f6f7")
+    title_font = ImageFont.truetype("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 26)
+    draw = ImageDraw.Draw(board)
+
+    def paste_image(source: bytes, x: int, y: int):
+        with Image.open(BytesIO(source)) as image_source:
+            image = image_source.convert("RGB")
+        image.thumbnail((image_width, image_height), Image.Resampling.LANCZOS)
+        panel = Image.new("RGB", (image_width, image_height), "white")
+        panel.paste(image, ((image_width - image.width) // 2, (image_height - image.height) // 2))
+        board.paste(panel, (x, y))
+
+    for index, (sku, primary, slot) in enumerate(items, start=1):
+        column, row = (index - 1) % columns, (index - 1) // columns
+        x = gap + column * (cell_width + gap)
+        y = gap + row * (cell_height + gap)
+        draw.rectangle((x, y, x + cell_width, y + title_height), fill="#263238")
+        draw.text((x + gap, y + 11), f"{index}. {sku}", fill="white", font=title_font)
+        paste_image(primary, x + gap, y + title_height + gap)
+        paste_image(slot, x + 2 * gap + image_width, y + title_height + gap)
+
+    output = BytesIO()
+    board.save(output, format="PNG")
+    return output.getvalue()
+
+
+def generate_grouped_owlv2_prompts(
+    items: list[tuple[str, bytes, bytes]], model: str = DEFAULT_MODEL,
+) -> dict[str, str]:
+    if not 2 <= len(items) <= 8:
+        raise ValueError("Provide between 2 and 8 complete SKU image pairs")
+    board_url, _metadata = image_data_url(build_grouped_sku_prompt_board(items), 1600)
+    content: list[dict[str, Any]] = [
+        {"type": "text", "text": (
+            "这是一张 SKU 对比图，每个标题栏包含编号和中文 SKU 名称，标题栏下方左图是 SKU 主图、右图是正常货位 ID 图。"
+            "请比较同组商品的可见差异，为每个编号生成可区分的 OWLv2 英文对象描述。"
+            "优先使用包装形态、主色、可见品牌、口味文字和包装图案；不要只给泛化品类词。"
+            "中文 SKU 名称只用于编号映射，不要翻译中文 SKU、不要拼音化或音译为检测词。"
+            "每条提示词应为 2-10 个英文词；不要写 a photo of、数量、位置、背景、价格或推测信息。"
+            "只输出严格 JSON，不要 Markdown 或解释："
+            '{"items":[{"index":1,"prompt":"2-10 English words"}]}'
+        )},
+        {"type": "image_url", "image_url": {"url": board_url}},
+    ]
+    try:
+        parsed = json.loads(request_ark(content, model, 768).content.strip())
+        returned_items = parsed["items"]
+    except (json.JSONDecodeError, KeyError, TypeError) as error:
+        raise RuntimeError("Ark did not return grouped OWLv2 prompt JSON") from error
+    if not isinstance(returned_items, list):
+        raise RuntimeError("Ark did not return grouped OWLv2 prompt JSON")
+    by_index: dict[int, str] = {}
+    for item in returned_items:
+        if not isinstance(item, dict) or type(item.get("index")) is not int or not isinstance(item.get("prompt"), str):
+            raise RuntimeError("Ark returned an invalid grouped OWLv2 prompt item")
+        index = item["index"]
+        if index in by_index:
+            raise RuntimeError("Ark returned duplicate grouped OWLv2 prompt indexes")
+        by_index[index] = validate_owlv2_prompt(item["prompt"])
+    if set(by_index) != set(range(1, len(items) + 1)):
+        raise RuntimeError("Ark did not return every grouped OWLv2 prompt")
+    return {sku: by_index[index] for index, (sku, _primary, _slot) in enumerate(items, start=1)}
+
+
 def generate_owlv2_prompt(sku: str, image_sources: list[Path | bytes], model: str = DEFAULT_MODEL) -> str:
     """Draft one short, reviewable English OWLv2 text query from normal SKU crops."""
     if not 1 <= len(image_sources) <= 3:
@@ -173,10 +250,7 @@ def generate_owlv2_prompt(sku: str, image_sources: list[Path | bytes], model: st
     for source in image_sources:
         image_url, _metadata = image_data_url(source, 560)
         content.append({"type": "image_url", "image_url": {"url": image_url}})
-    prompt = request_ark(content, model, 96).content.strip().strip("`\"'")
-    if not prompt or "\n" in prompt or len(prompt) > 120 or prompt.lower().startswith("a photo of "):
-        raise RuntimeError("Ark did not return one concise OWLv2 object description")
-    return prompt
+    return validate_owlv2_prompt(request_ark(content, model, 96).content)
 
 
 def request_siliconflow(content: list[dict[str, Any]], model: str, max_tokens: int) -> ProviderResponse:

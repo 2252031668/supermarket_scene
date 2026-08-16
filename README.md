@@ -48,7 +48,8 @@
 | [数据库与 API 文档](docs/database_schema_and_api.md) | SQLite 表结构、固定位置模型、校准 JSON 与世界坐标公式。 |
 | [HTTP Web API：请求参数与 JSON 返回](docs/robot_web_api.md) | `api_server.py` 的视觉识别、坐标查询、取放货和场景维护端点。 |
 | [ROS2 服务：输入参数与输出结构](docs/ros2_service_api.md) | 各 `.srv` 请求字段、各 `.msg` 返回字段、节点参数和机器人调用流程。 |
-| [比赛巡检 RGB-D 缺货复现与迁移](docs/competition_rgbd_stockout_reproduction.md) | 独立 RGB-D 缺货识别链路、采集、算法参数、SKU 检索和数据库关联。 |
+| [比赛巡检 RGB-D 缺货复现与迁移](docs/competition_rgbd_stockout_reproduction.md) | 独立 RGB-D 缺货识别链路、上游话题输入、算法参数、SKU 检索和数据库关联。 |
+| [本地 Qwen G4 SKU 框选](docs/local_qwen_g4_grounding.md) | Qwen 专用提示词、单图框选请求、JSON 解析和像素坐标转换。 |
 
 ## 使用方式
 
@@ -72,7 +73,6 @@ Web 与 ROS2 都读写 `shelf_inventory.db`。固定位置写入后会同步重�
 ├── vision/                   巡检、SKU 查询、图片拼接和共享视觉模块
 ├── robot_service.py          机器人直接调用的无传输层业务入口
 ├── ros2/
-│   ├── rgbd_capture/                 D435i RGB、深度和内参离线采集脚本
 │   ├── supermarket_scene_interfaces/  ROS2 msg/srv 接口包
 │   └── supermarket_scene_ros/         rclpy 服务节点包
 ├── mujoco/                   MuJoCo 场景生成器、MJCF 和模型资产
@@ -127,10 +127,12 @@ npm run dev
 ## Web 功能
 
 - **货架管理**：维护货架、交付桌、SKU 和固定货位，提供 2D/3D 视图。
-- **人工批量录入**：标定货架面、框选已有商品或空位，填写 `expected_sku` 与 `actual_sku` 后批量写入；导入审核可按 SKU 用最多三张最大正常裁剪图生成并编辑 OWLv2 英文自由文本对象描述。
+- **SKU 主图与抓取方式**：SKU 可保存主图和抓取方式（`夹爪` 或 `吸盘`）；主图存为 `data/sku_images/<SKU>.png`，供所有 DINO SKU 相似度检索优先使用，缺失时才回退到手机录入的 ID 图。
+- **SKU 批量管理**：可在全量 SKU 页面以列表或大图模式编辑名称、主图、抓取方式和 OWLv2 提示词；可勾选 2-8 个同时具备主图和正常 ID 图的 SKU，生成一张带序号、SKU 名称且文字不遮挡商品的对比图后，一次调用 Ark 生成整组草稿；支持图片文件夹导入、事务式重命名，以及将被删除 SKU 的货位引用替换为保留的 `unknown`。
+- **人工批量录入**：标定货架面、框选已有商品或空位，填写 `expected_sku` 与 `actual_sku` 后批量写入；审核页可设置 SKU 主图和抓取方式，OWLv2 草稿只组合 SKU 主图与一张正常 ID 图。
 - **巡检识别**：上传局部货架照片，先用 SIFT 配准和 Lab 色彩距离筛选货位异常，再以 DINOv2 识别 SKU；可选 Ark VLM 保底。结果仅在点击“应用修改”后才更新数据库和 JSON。
-- **比赛巡检**：两个互斥回合。RGB-D 缺货回合从服务器预置 D435i 样本定位第一排缺失后暴露的后排商品；异常摆放回合上传一张局部 RGB 图，由本地 Qwen 识别连续同类商品序列中的明显异类（0 至 2 个）。两者均用 DINO 检索手机录入商品图，低置信度时由本地 Qwen 在无分数 Top-3 候选板复核。结果只读，不写库存状态。
-- **货物查询**：按 SKU 或固定位置查询局部照片中的目标货物，可使用 Ark 等 VLM，或本地 `google/owlv2-large-patch14-ensemble` 英文对象描述检索；输入 SKU 时优先选取正常 slot 的参考裁剪图，两条路径都可选 DINOv2 复核候选框。
+- **比赛巡检**：两个互斥回合。RGB-D 缺货回合从服务器预置 D435i 样本定位第一排缺失后暴露的后排商品；异常摆放回合上传一张局部 RGB 图，由本地 Qwen 识别连续同类商品序列中的明显异类（0 至 2 个）。两者均优先用 DINO 检索 SKU 主图，低置信度时由本地 Qwen 在无分数 Top-3 候选板复核。结果只读，不写库存状态。
+- **货物查询**：按 SKU 或固定位置查询局部照片中的目标货物，可使用 Ark 等 VLM，或本地 `google/owlv2-large-patch14-ensemble` 英文对象描述检索；优先使用 SKU 主图，没有主图时回退正常 slot 的参考裁剪图，两条路径都可选 DINOv2 复核候选框。
 - **图片拼接**：上传同一货架面的 2 至 8 张重叠照片，手工选择主平面。后端对所有图片两两进行 SIFT/MAGSAC 匹配，拼接主图所在的可靠连通组；再用 GraphCut 接缝选择和三层多频段融合输出拼接图。结果可四点透视校正后下载，或直接送到人工批量录入。
 
 Web 对巡检和 SKU 查询固定传递 `debug: true`，结果保存在 `vision/output/`：巡检为 `slot_inspection/{run_id}/`，SKU 查询为 `vlm_sku_query/{run_id}/`，图片拼接为 `image_stitch/{run_id}/`，RGB-D 缺货为 `rgbd_stockout/{run_id}/`，RGB 异常摆放为 `rgb_misplacement/{run_id}/`。这些都是可删除的运行产物。其他 HTTP/ROS2 调用不传或传递 `debug: false` 时，巡检和 SKU 查询直接返回结果，不创建运行目录、不绘制图像或写入中间文件。

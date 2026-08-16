@@ -171,11 +171,37 @@ class FixedSlotTests(unittest.TestCase):
                 "expected_sku": "water", "actual_sku": "water",
             }],
             [{"sku": "water", "owlv2_prompt": "a green mineral water bottle"}],
+            [{"sku": "water", "reference_image_path": "data/sku_images/water.png", "grasp_method": "吸盘"}],
         )
         self.assertEqual(self.db.get_sku_info("water").owlv2_prompt, "a green mineral water bottle")
+        self.assertEqual(self.db.get_sku_info("water").reference_image_path, "data/sku_images/water.png")
+        self.assertEqual(self.db.get_sku_info("water").grasp_method, "吸盘")
 
         self.db.update_sku("water", "drink", "water.xml", "water.png", "a clear water bottle")
         self.assertEqual(self.db.get_sku_info("water").owlv2_prompt, "a clear water bottle")
+
+    def test_rename_sku_moves_all_slot_references(self):
+        first = self.db.create_slot(self.shelf_id, 0, 2, 20, "cola", "cola")
+        second = self.db.create_slot(self.shelf_id, 0, 2, 40, "sprite", "cola")
+
+        self.db.rename_sku("cola", "orange-cola")
+
+        self.assertIsNone(self.db.get_sku_info("cola"))
+        self.assertEqual(self.db.get_slot_by_id(first).expected_sku, "orange-cola")
+        self.assertEqual(self.db.get_slot_by_id(first).actual_sku, "orange-cola")
+        self.assertEqual(self.db.get_slot_by_id(second).actual_sku, "orange-cola")
+
+    def test_delete_skus_replaces_references_with_reserved_unknown(self):
+        slot_id = self.db.create_slot(self.shelf_id, 0, 2, 20, "cola", "cola")
+
+        deleted = self.db.delete_skus_to_unknown(["cola"])
+
+        slot = self.db.get_slot_by_id(slot_id)
+        self.assertEqual(deleted, ["cola"])
+        self.assertEqual((slot.expected_sku, slot.actual_sku), ("unknown", "unknown"))
+        self.assertIsNotNone(self.db.get_sku_info("unknown"))
+        with self.assertRaises(ValueError):
+            self.db.delete_skus_to_unknown(["unknown"])
 
     def test_sku_owlv2_prompt_survives_database_reopen(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -184,6 +210,26 @@ class FixedSlotTests(unittest.TestCase):
                 db.register_sku("water", owlv2_prompt="a clear mineral water bottle")
             with ShelfDatabase(path) as db:
                 self.assertEqual(db.get_sku_info("water").owlv2_prompt, "a clear mineral water bottle")
+
+    def test_qwen_grounding_prompt_persists_through_update_and_rename(self):
+        self.db.register_sku("water", qwen_grounding_prompt="透明瓶身，蓝色瓶盖，正面有白色品牌大字")
+        self.assertEqual(self.db.get_sku_info("water").qwen_grounding_prompt, "透明瓶身，蓝色瓶盖，正面有白色品牌大字")
+
+        self.db.update_sku("water", "drink", "", "", "a water bottle")
+        self.assertEqual(self.db.get_sku_info("water").qwen_grounding_prompt, "透明瓶身，蓝色瓶盖，正面有白色品牌大字")
+
+        self.db.update_sku("water", "drink", "", "", "a water bottle", qwen_grounding_prompt="蓝色瓶盖与白色品牌字样")
+        self.db.rename_sku("water", "blue-water")
+        self.assertEqual(self.db.get_sku_info("blue-water").qwen_grounding_prompt, "蓝色瓶盖与白色品牌字样")
+
+    def test_sku_reference_image_and_grasp_method(self):
+        self.db.register_sku("cola", reference_image_path="data/sku_images/cola.png", grasp_method="吸盘")
+        sku = self.db.get_sku_info("cola")
+        self.assertEqual(sku.reference_image_path, "data/sku_images/cola.png")
+        self.assertEqual(sku.grasp_method, "吸盘")
+        self.assertEqual(self.db.get_sku_info("tea").grasp_method, "夹爪")
+        with self.assertRaisesRegex(ValueError, "grasp_method"):
+            self.db.register_sku("water", grasp_method="手拿")
 
     def test_inspection_decision_without_vlm_turns_low_confidence_into_shortage(self):
         from vision.cv_restock_position import classify_candidate
@@ -733,6 +779,79 @@ class FixedSlotTests(unittest.TestCase):
         self.assertIn("不要输出 Xingmu", instruction)
         self.assertIn("自由文本对象描述", instruction)
 
+    def test_grouped_owlv2_prompt_generation(self):
+        from vision.vlm_sku_query import ProviderResponse, generate_grouped_owlv2_prompts
+
+        blue_primary, blue_slot, orange_primary, orange_slot = (BytesIO() for _ in range(4))
+        Image.new("RGB", (20, 40), "blue").save(blue_primary, format="PNG")
+        Image.new("RGB", (40, 20), "navy").save(blue_slot, format="PNG")
+        Image.new("RGB", (20, 40), "orange").save(orange_primary, format="PNG")
+        Image.new("RGB", (40, 20), "red").save(orange_slot, format="PNG")
+        response = ProviderResponse(
+            provider="ark", model="test-model",
+            content=(
+                '{"items":[{"index":1,"prompt":"blue berry sports drink bottle"},'
+                '{"index":2,"prompt":"orange mango sports drink bottle"}]}'
+            ),
+            request_id="request", usage=None, request_seconds=0.1,
+        )
+
+        with patch("vision.vlm_sku_query.request_ark", return_value=response) as request:
+            prompts = generate_grouped_owlv2_prompts([
+                ("脉动蓝莓", blue_primary.getvalue(), blue_slot.getvalue()),
+                ("脉动芒果", orange_primary.getvalue(), orange_slot.getvalue()),
+            ])
+
+        self.assertEqual(prompts, {
+            "脉动蓝莓": "blue berry sports drink bottle",
+            "脉动芒果": "orange mango sports drink bottle",
+        })
+        request.assert_called_once()
+        content = request.call_args.args[0]
+        self.assertEqual(sum(item["type"] == "image_url" for item in content), 1)
+        self.assertIn("JSON", content[0]["text"])
+        self.assertIn("比较", content[0]["text"])
+        self.assertIn("不要翻译中文 SKU", content[0]["text"])
+
+    def test_grouped_owlv2_prompt_generation_rejects_incomplete_json(self):
+        from vision.vlm_sku_query import ProviderResponse, generate_grouped_owlv2_prompts
+
+        sample = BytesIO()
+        Image.new("RGB", (20, 20), "blue").save(sample, format="PNG")
+        response = ProviderResponse(
+            provider="ark", model="test-model",
+            content='{"items":[{"index":1,"prompt":"blue drink bottle"}]}',
+            request_id="request", usage=None, request_seconds=0.1,
+        )
+
+        with patch("vision.vlm_sku_query.request_ark", return_value=response):
+            with self.assertRaises(RuntimeError):
+                generate_grouped_owlv2_prompts([
+                    ("蓝莓", sample.getvalue(), sample.getvalue()),
+                    ("芒果", sample.getvalue(), sample.getvalue()),
+                ])
+
+    def test_grouped_owlv2_prompt_generation_rejects_boolean_index(self):
+        from vision.vlm_sku_query import ProviderResponse, generate_grouped_owlv2_prompts
+
+        sample = BytesIO()
+        Image.new("RGB", (20, 20), "blue").save(sample, format="PNG")
+        response = ProviderResponse(
+            provider="ark", model="test-model",
+            content=(
+                '{"items":[{"index":true,"prompt":"blue drink bottle"},'
+                '{"index":2,"prompt":"green drink bottle"}]}'
+            ),
+            request_id="request", usage=None, request_seconds=0.1,
+        )
+
+        with patch("vision.vlm_sku_query.request_ark", return_value=response):
+            with self.assertRaises(RuntimeError):
+                generate_grouped_owlv2_prompts([
+                    ("蓝莓", sample.getvalue(), sample.getvalue()),
+                    ("芒果", sample.getvalue(), sample.getvalue()),
+                ])
+
 
 class CalibrationProjectionTests(unittest.TestCase):
     def setUp(self):
@@ -854,6 +973,9 @@ class FixedSlotApiTests(unittest.TestCase):
         self.item_images_patch = patch.object(
             api_server, "ITEM_IMAGES_DIR", str(Path(self.temp_dir.name) / "item_images")
         )
+        self.sku_images_patch = patch.object(
+            api_server, "SKU_IMAGES_DIR", Path(self.temp_dir.name) / "sku_images"
+        )
         self.sku_query_output_patch = patch.object(
             api_server, "SKU_QUERY_OUTPUT_DIR", Path(self.temp_dir.name) / "sku-query-runs", create=True
         )
@@ -867,6 +989,7 @@ class FixedSlotApiTests(unittest.TestCase):
         self.calibration_patch.start()
         self.vision_output_patch.start()
         self.item_images_patch.start()
+        self.sku_images_patch.start()
         self.sku_query_output_patch.start()
         self.image_stitch_output_patch.start()
         self.config_path_patch.start()
@@ -886,6 +1009,7 @@ class FixedSlotApiTests(unittest.TestCase):
         self.config_path_patch.stop()
         self.vision_output_patch.stop()
         self.item_images_patch.stop()
+        self.sku_images_patch.stop()
         self.sku_query_output_patch.stop()
         self.image_stitch_output_patch.stop()
         self.calibration_patch.stop()
@@ -959,6 +1083,116 @@ class FixedSlotApiTests(unittest.TestCase):
 
         self.assertEqual(sku, "sprite")
         self.assertEqual(slot_id, "1-0-2-20")
+
+    def test_sku_image_upload_is_stored_and_served(self):
+        output = BytesIO()
+        Image.new("RGB", (2, 2), "red").save(output, format="PNG")
+        image_data = "data:image/png;base64," + base64.b64encode(output.getvalue()).decode()
+        status, response = self.request("/api/skus", "POST", {
+            "sku": "tea", "reference_image_data": image_data, "grasp_method": "吸盘",
+        })
+        self.assertEqual(status, 201)
+        sku = next(item for item in response["state"]["skus"] if item["sku"] == "tea")
+        self.assertEqual(sku["reference_image_path"], "data/sku_images/tea.png")
+        self.assertEqual(sku["grasp_method"], "吸盘")
+        reference_sku, reference_slot_id, reference_path = api_server.sku_query_reference("tea")
+        self.assertEqual((reference_sku, reference_slot_id), ("tea", None))
+        self.assertEqual(reference_path, api_server.SKU_IMAGES_DIR / "tea.png")
+        with urllib.request.urlopen(self.base_url + "/api/sku-images/tea") as image_response:
+            self.assertEqual(Image.open(BytesIO(image_response.read())).convert("RGB").getpixel((0, 0)), (255, 0, 0))
+
+    def test_sku_folder_import_creates_and_replaces_sku_images(self):
+        directory = Path(self.temp_dir.name) / "sku-import"
+        directory.mkdir()
+        Image.new("RGB", (2, 2), "blue").save(directory / "tea.png")
+
+        status, body = self.request("/api/skus/import-image-directory", "POST", {"directory": str(directory)})
+
+        self.assertEqual(status, 201)
+        tea = next(item for item in body["state"]["skus"] if item["sku"] == "tea")
+        self.assertEqual(tea["grasp_method"], "夹爪")
+        self.assertEqual(Image.open(api_server.SKU_IMAGES_DIR / "tea.png").convert("RGB").getpixel((0, 0)), (0, 0, 255))
+
+    def _create_grouped_prompt_sources(self):
+        api_server.SKU_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+        for y_cm, sku, color in ((10, "cola", "red"), (20, "sprite", "green")):
+            self.request("/api/slots", "POST", {
+                "shelf_id": 1, "face": 0, "level": 2, "y_cm": y_cm,
+                "expected_sku": sku, "actual_sku": sku,
+            })
+            item_dir = Path(api_server.ITEM_IMAGES_DIR) / f"1-0-2-{y_cm}"
+            item_dir.mkdir(parents=True)
+            Image.new("RGB", (20, 20), color).save(item_dir / "0.png")
+            Image.new("RGB", (20, 20), color).save(api_server.SKU_IMAGES_DIR / f"{sku}.png")
+
+    def test_grouped_sku_prompt_generation(self):
+        self._create_grouped_prompt_sources()
+        generated = {"cola": "red cola bottle", "sprite": "green lemon soda bottle"}
+
+        with patch("api_server.generate_grouped_owlv2_prompts", return_value=generated, create=True) as grouped, \
+                patch("api_server.generate_owlv2_prompt", return_value="unused"):
+            status, body = self.request(
+                "/api/skus/prompts/generate", "POST", {"skus": ["cola", "sprite"]}
+            )
+
+        self.assertEqual(status, 201)
+        self.assertEqual(body["drafts"], [
+            {"sku": "cola", "owlv2_prompt": "red cola bottle"},
+            {"sku": "sprite", "owlv2_prompt": "green lemon soda bottle"},
+        ])
+        grouped.assert_called_once()
+        self.assertEqual(len(grouped.call_args.args[0]), 2)
+        self.assertTrue(all(len(item) == 3 for item in grouped.call_args.args[0]))
+
+    def test_grouped_sku_prompt_generation_skips_incomplete_items(self):
+        self._create_grouped_prompt_sources()
+        (api_server.SKU_IMAGES_DIR / "sprite.png").unlink()
+
+        with patch("api_server.generate_grouped_owlv2_prompts", create=True) as grouped, \
+                patch("api_server.generate_owlv2_prompt", return_value="unused"):
+            status, body = self.request(
+                "/api/skus/prompts/generate", "POST", {"skus": ["cola", "sprite"]}
+            )
+
+        self.assertEqual(status, 201)
+        self.assertEqual(body["drafts"], [])
+        self.assertIn({"sku": "sprite", "reason": "No SKU primary image"}, body["skipped"])
+        self.assertIn({"sku": "cola", "reason": "Need at least two complete SKUs"}, body["skipped"])
+        grouped.assert_not_called()
+
+    def test_grouped_sku_prompt_generation_rejects_more_than_eight(self):
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.request(
+                "/api/skus/prompts/generate", "POST", {"skus": [f"sku-{index}" for index in range(9)]}
+            )
+
+        self.assertEqual(error.exception.code, 400)
+        self.assertIn("between 2 and 8", error.exception.read().decode())
+
+    def test_batch_delete_replaces_slot_skus_with_unknown(self):
+        self.request("/api/slots", "POST", {
+            "shelf_id": 1, "face": 0, "level": 2, "y_cm": 30,
+            "expected_sku": "cola", "actual_sku": "cola",
+        })
+
+        status, body = self.request("/api/skus/delete", "POST", {"skus": ["cola"]})
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["state"]["slots"][0]["expected_sku"], "unknown")
+        self.assertEqual(body["state"]["slots"][0]["actual_sku"], "unknown")
+
+    def test_sku_batch_save_updates_qwen_grounding_prompt(self):
+        status, body = self.request("/api/skus/batch", "POST", {
+            "skus": [{
+                "sku": "cola", "original_sku": "cola", "category": "", "mesh_file": "", "tex_file": "",
+                "owlv2_prompt": "a cola bottle", "qwen_grounding_prompt": "深色瓶身，红色标签，白色品牌字样",
+                "reference_image_path": "", "grasp_method": "夹爪",
+            }],
+        })
+
+        self.assertEqual(status, 200)
+        cola = next(item for item in body["state"]["skus"] if item["sku"] == "cola")
+        self.assertEqual(cola["qwen_grounding_prompt"], "深色瓶身，红色标签，白色品牌字样")
 
     def test_vision_run_is_read_only_until_selected_result_is_applied(self):
         self.request(

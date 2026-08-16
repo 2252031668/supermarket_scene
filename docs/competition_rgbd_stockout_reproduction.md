@@ -3,7 +3,7 @@
 本文描述一个独立的“比赛巡检 RGB-D 缺货识别服务”。它用于识别第一排缺货后显露的后排商品，并输出待补货 SKU、RGB 框和相对后退距离。该服务只读，不修改库存。
 
 ```text
-D435i 对齐 RGB + 深度 + 内参
+C++ / ROS2 上游话题提供对齐 RGB + 深度 + 内参
         -> 红色货架前梁和商品组检测
         -> 每层货架前沿三维平面与相对后退距离
         -> 缺货候选 box
@@ -55,9 +55,19 @@ uv sync
 uv run python vision/download_qwen35_modelscope.py
 ```
 
-## 3. D435i 采集
+## 3. C++ / ROS2 上游图像话题
 
-### 3.1 相机要求
+本项目不提供 D435i 采集节点。相机连接、对齐和帧同步由上游 C++ ROS2 节点负责；缺货识别服务只消费其输出的同步 RGB-D 数据。
+
+### 3.1 话题输入契约
+
+默认话题名如下，实际部署可由上游节点或适配层重映射：
+
+```text
+/head_camera/color/image_raw
+/head_camera/depth/image_raw
+/head_camera/color/camera_info
+```
 
 必须取得时间近似同步、且深度已经对齐到 RGB 的三路数据：
 
@@ -67,54 +77,18 @@ uv run python vision/download_qwen35_modelscope.py
 | Depth | 毫米级前后距离 | 对齐 RGB；`16UC1` 毫米或 `32FC1` 米 |
 | CameraInfo | 深度反投影 | `camera_info.k` 为有效 3x3 内参 |
 
-项目内采集实现位于：
+上游 C++ 节点必须满足：
 
-```text
-ros2/rgbd_capture/capture_rgb_depth.py
-```
+1. 深度图已经注册到 RGB 光学坐标系，RGB 与深度宽高完全一致。
+2. 每次比赛请求只取请求到达后的一组同步 RGB、Depth、CameraInfo；不得复用上一次缓存帧。
+3. RGB 与 Depth 可用近似时间同步，推荐同步队列至少 20 帧、时间差不超过 0.1 秒；CameraInfo 使用同一相机流的有效内参。
+4. 调用识别前，C++ 适配层将 `16UC1` 直接作为毫米深度传入；若上游为 `32FC1` 米，先转换为 `uint16` 毫米，非有限值和超范围值置零。
 
-该采集节点已随项目迁入。迁移时保留这个文件和其 ROS2 依赖，或实现同等输出格式的采集节点。它订阅的话题默认是：
+在线话题和离线保存的 `depth_raw.png` 都不能使用伪彩色图或 8 位深度图；检测器需要原始 16 位毫米值。
 
-```text
-/head_camera/color/image_raw
-/head_camera/depth/image_raw
-/head_camera/color/camera_info
-```
+### 3.2 离线回归文件格式
 
-原始包已通过 `message_filters.ApproximateTimeSynchronizer` 使用 `queue_size=20`、`slop=0.1` 秒同步 RGB 和深度；`CameraInfo` 使用最新可用的一帧。
-
-### 3.2 推荐 ROS2 采集命令
-
-在已启动 D435i、且相机驱动发布上述话题后，运行一次性采集节点。输出目录必须直接落到项目样本根目录下的新子目录：
-
-```bash
-source /opt/ros/humble/setup.bash
-source <camera_workspace>/install/setup.bash
-
-python3 ros2/rgbd_capture/capture_rgb_depth.py --ros-args \
-  -p output_dir:=<project_root>/test_pic/rgbd_stockout/round_001 \
-  -p sample_name:=round_001 \
-  -p annotation:='比赛缺货测试，正面拍摄' \
-  -p max_depth_m:=2.0
-```
-
-采集节点收到第一组同步帧即退出，并执行以下深度转换：
-
-```python
-if depth_msg.encoding == '16UC1':
-    depth_mm = raw_depth.astype(np.uint16)
-elif depth_msg.encoding == '32FC1':
-    depth_mm = np.nan_to_num(raw_depth * 1000.0, nan=0.0)
-    depth_mm = np.clip(depth_mm, 0, np.iinfo(np.uint16).max).astype(np.uint16)
-else:
-    raise ValueError('Unsupported depth encoding')
-```
-
-不要把 `depth_raw.png` 转成伪彩色图或 8 位 PNG。检测器需要原始 16 位毫米值。
-
-### 3.3 输出文件格式
-
-对 `sample_name=round_001`，采集器会写入：
+`test_pic/rgbd_stockout` 用于离线回归，不是在线服务输入。每个样本目录包含：
 
 ```text
 round_001_rgb.png            # BGR PNG
@@ -434,11 +408,9 @@ def inspect_competition_stockout(rgb, depth_mm, metadata, db_path, item_images_d
 [ ] vision/models/dinov2-small/ 已存在，或允许首次下载 DINO
 [ ] vision/models/Qwen3.5-4B/ 已存在，或执行下载脚本
 [ ] vision/front_stockout_detector.py 与 vision/rgbd_stockout.py 均已随项目复制
-[ ] 如需新采样，ROS2 D435i 采集器能发布对齐 RGB、深度、CameraInfo
+[ ] 上游 C++ ROS2 节点能发布对齐 RGB、深度、CameraInfo，且深度可转换为 uint16 毫米
 [ ] uv run python -m unittest tests.test_rgbd_stockout
 ```
-
-采集器迁移所需 ROS2 依赖：`rclpy`、`sensor_msgs`、`cv_bridge`、`message_filters`、`numpy`、`opencv-python`、`pyyaml`。RealSense 驱动侧通常还需要 `realsense2_camera`。
 
 ## 11. 常见问题
 

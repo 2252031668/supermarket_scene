@@ -89,8 +89,8 @@ export function SkuQueryPage({ state, onBack }: { state: WarehouseState; onBack:
     </section>
     {report && <section className="review-band sku-query-review">
       <div className="sku-query-summary">
-        <img src={'/api/item-images/' + encodeURIComponent(report.reference_slot_id) + '/0.png'} alt={report.sku + ' 参考图'} />
-        <div><span>查询结果</span><strong>{report.sku}</strong><small>参考位置 {report.reference_slot_id} / {report.provider === 'local' ? 'OWLv2' : 'VLM'} {(report.owlv2_detected_boxes ?? report.vlm_detected_boxes ?? []).length} 个 / 最终 {report.detected_boxes.length} 个</small></div>
+        <img src={report.reference_slot_id ? `/api/item-images/${encodeURIComponent(report.reference_slot_id)}/0.png` : `/api/sku-images/${encodeURIComponent(report.sku)}`} alt={report.sku + ' 参考图'} />
+        <div><span>查询结果</span><strong>{report.sku}</strong><small>参考{report.reference_slot_id ? `位置 ${report.reference_slot_id}` : 'SKU 主图'} / {report.provider === 'local' ? 'OWLv2' : 'VLM'} {(report.owlv2_detected_boxes ?? report.vlm_detected_boxes ?? []).length} 个 / 最终 {report.detected_boxes.length} 个</small></div>
         <div className="sku-query-metrics"><span>来源 {report.provider}</span><span>模型 {report.model}</span><span>{report.config?.dino_fallback ? 'DINO 已验证' : report.provider === 'local' ? '仅 OWLv2' : '仅 VLM'}</span><span>请求 {report.request_seconds.toFixed(2)} 秒</span><span>总计 {report.total_seconds.toFixed(2)} 秒</span></div>
       </div>
       {report.provider !== 'local' && <pre className="sku-query-raw" aria-label="VLM 原始输出">{report.raw_response || 'NONE'}</pre>}

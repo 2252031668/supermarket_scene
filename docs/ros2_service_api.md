@@ -158,7 +158,7 @@ string query
 bool success
 string error
 string sku
-string reference_slot_id
+string reference_slot_id  # 使用 SKU 主图时为空字符串
 string provider
 string model
 string request_id
@@ -173,7 +173,7 @@ supermarket_scene_interfaces/DetectedBox[] boxes
 /supermarket_scene/find_sku
 ```
 
-`query` 可以是已有 SKU，也可以是已有 `slot_id`。输入 `slot_id` 时直接使用该位置的参考图；输入 SKU 时优先选择 `expected_sku == actual_sku == query` 且已有裁剪图的正常 slot，再按 `slot_id` 选择，无正常样本才回退到其他有图的应摆 slot。返回的 `boxes` 是最终保留的框，不返回原始 VLM 文本和调试图片。节点参数 `provider=local` 时固定使用 `google/owlv2-large-patch14-ensemble` 和该 SKU 已审核的 `owlv2_prompt`；空提示词会返回 `success=false`。`sku_query.dino_fallback` 是节点级 DINO 保底开关，不是单次服务字段：关闭时直接返回 OWLv2 前 `sku_query.max_boxes` 个框，开启时由 DINO 对全部 OWLv2 候选排序后返回前 `max_boxes` 个。本地路径的 `DetectedBox.confidence` 优先返回 DINO 复核分数，否则返回 OWLv2 分数。
+`query` 可以是已有 SKU，也可以是已有 `slot_id`。如果 SKU 有 `data/sku_images/<SKU>.png`，两种查询都优先使用 SKU 主图；否则才回退到该位置或正常 slot 的 `data/item_images/{slot_id}/0.png`。返回的 `boxes` 是最终保留的框，不返回原始 VLM 文本和调试图片。节点参数 `provider=local` 时固定使用 `google/owlv2-large-patch14-ensemble` 和该 SKU 已审核的 `owlv2_prompt`；空提示词会返回 `success=false`。`sku_query.dino_fallback` 是节点级 DINO 保底开关，不是单次服务字段：关闭时直接返回 OWLv2 前 `sku_query.max_boxes` 个框，开启时由 DINO 对全部 OWLv2 候选排序后返回前 `max_boxes` 个。本地路径的 `DetectedBox.confidence` 优先返回 DINO 复核分数，否则返回 OWLv2 分数。
 
 ## 坐标与状态查询服务
 
